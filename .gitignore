@@ -1,0 +1,26 @@
+# Build outputs
+**/bin/
+**/obj/
+**/Release/
+**/Debug/
+**/Release_*/
+**/Distribution/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# NuGet
+packages/
+
+# Build artifacts
+*.dll
+*.pdb
+*.exe
+!HoldfastModdingLauncher/Mods/*.dll
+
+# Temp files
+*.tmp
+*.log
+

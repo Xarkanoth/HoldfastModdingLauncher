@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net6.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>HoldfastModdingLauncher</AssemblyName>
+    <RootNamespace>HoldfastModdingLauncher</RootNamespace>
+    <!-- Suppress nullable reference warnings for UI controls initialized in InitializeComponent -->
+    <NoWarn>$(NoWarn);CS8618;CS8600;CS8622;CS8625;CS8603;CS8604;CS1998</NoWarn>
+    <!-- Version is read from version.txt during build -->
+    <Version Condition="Exists('$(MSBuildProjectDirectory)\version.txt')">$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)\version.txt').Trim())</Version>
+    <Version Condition="!Exists('$(MSBuildProjectDirectory)\version.txt')">1.0.0</Version>
+    <!-- Output to Release folder in project directory for easier distribution -->
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>$(MSBuildProjectDirectory)\Release\</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Compression.ZipFile" Version="4.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Application Icon - Embedded as resource and used as executable icon -->
+    <None Include="Resources\Xark.ico" Condition="Exists('Resources\Xark.ico')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- Set application icon for executable -->
+  <PropertyGroup Condition="Exists('Resources\Xark.ico')">
+    <ApplicationIcon>Resources\Xark.ico</ApplicationIcon>
+  </PropertyGroup>
+
+</Project>
+
+

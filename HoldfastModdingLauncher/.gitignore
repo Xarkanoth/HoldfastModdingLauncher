@@ -1,0 +1,27 @@
+# Build outputs
+bin/
+obj/
+Release/
+Release_*/
+
+# IDE files
+.vs/
+*.user
+*.suo
+
+# Logs
+*.log
+
+# Dependencies (restored by NuGet)
+packages/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Keep Mods folder but ignore DLLs (they're built separately)
+Mods/*.dll
+
+# Keep version file
+!version.txt
+

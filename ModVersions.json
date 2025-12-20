@@ -1,0 +1,15 @@
+﻿{
+  "Mods": {
+    "AdvancedAdminUI": {
+      "Version": "1.0.2",
+      "DisplayName": "Advanced Admin UI",
+      "Description": "A comprehensive client-side admin tool suite for Holdfast: Nations at War. Features include Cavalry Visualization, Rambo Indicator, AFK Indicator, Minimap, and Admin UI.",
+      "Requirements": "Requires RC login to use.",
+      "DllName": "AdvancedAdminUI.dll",
+      "ProjectFolder": "AdvancedAdminUI"
+    }
+  },
+  "Launcher": {
+    "Version": "1.0.79"
+  }
+}
