@@ -14,7 +14,7 @@ A launcher for managing mods for Holdfast: Nations At War.
 
 ## Features
 
-- Automatic MelonLoader installation
+- Automatic BepinEx installation
 - Easy mod management (toggle mods on/off)
 - Bundled with **Advanced Admin UI** mod
 
