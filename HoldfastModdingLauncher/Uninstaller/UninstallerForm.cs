@@ -290,7 +290,7 @@ namespace HoldfastModdingUninstaller
             _logTextBox.ScrollToCaret();
         }
 
-        private async void UninstallButton_Click(object? sender, EventArgs e)
+        private async void UninstallButton_Click(object sender, EventArgs e)
         {
             if (!_uninstallLauncherCheckBox.Checked && !_uninstallModsCheckBox.Checked && 
                 !_uninstallBepInExCheckBox.Checked && !_removeSettingsCheckBox.Checked)
