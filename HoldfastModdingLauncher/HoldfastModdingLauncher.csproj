@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Exclude Uninstaller subfolder from main project -->
+  <!-- Exclude subprojects from main project -->
   <PropertyGroup>
-    <DefaultItemExcludes>$(DefaultItemExcludes);Uninstaller\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Uninstaller\**;HashGenerator\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <PropertyGroup>
