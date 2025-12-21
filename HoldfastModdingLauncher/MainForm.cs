@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Windows.Forms;
 using HoldfastModdingLauncher.Core;
 using HoldfastModdingLauncher.Services;
@@ -42,7 +44,12 @@ namespace HoldfastModdingLauncher
         private Button _loginButton;
         private Label _loginStatusLabel;
         private bool _isMasterLoggedIn = false;
-        private const string MASTER_PASSWORD = "CSGDominance";
+        
+        // Secure password hash - SHA256 of password with salt (password is never stored)
+        // This hash cannot be reversed to get the original password
+        // Even if someone sees this hash, they cannot determine the password
+        private const string PASSWORD_HASH = "5af29f81b2678084c9ffb40fcfeb0ee8287f4f5a16fb73229aca874503097728";
+        private const string HASH_SALT = "HF_MODDING_2024_XARK";
         private const string LOGIN_TOKEN_FILE = "master_login.token";
 
         // Dark theme colors (matching InstallerForm)
@@ -394,17 +401,18 @@ namespace HoldfastModdingLauncher
             // Check if already logged in (token file exists)
             CheckExistingLogin();
 
-            // Debug mode checkbox - Moved down
+            // Debug mode checkbox - Only visible to master login users
             _debugModeCheckBox = new CheckBox
             {
-                Text = "  Show Debug Console",
+                Text = "  🔧 Show Debug Console (Master Only)",
                 Location = new Point(25, 635),
                 AutoSize = true,
-                ForeColor = TextLight,
+                ForeColor = TextGray,
                 BackColor = Color.Transparent,
                 Checked = false,
                 Font = new Font("Segoe UI", 9F),
-                Cursor = Cursors.Hand
+                Cursor = Cursors.Hand,
+                Visible = false  // Hidden by default, shown only when master logged in
             };
             contentPanel.Controls.Add(_debugModeCheckBox);
 
@@ -602,28 +610,119 @@ namespace HoldfastModdingLauncher
                 string tokenPath = GetTokenFilePath();
                 if (File.Exists(tokenPath))
                 {
-                    // Token exists - verify it's valid (contains expected content)
-                    string content = File.ReadAllText(tokenPath).Trim();
-                    if (content == "MASTER_ACCESS_GRANTED")
+                    // Token exists - verify it's valid for this machine
+                    string token = File.ReadAllText(tokenPath).Trim();
+                    
+                    // Support old format for backwards compatibility (one-time migration)
+                    if (token == "MASTER_ACCESS_GRANTED")
+                    {
+                        // Upgrade to new secure token
+                        string secureToken = CreateSecureToken();
+                        WriteTokenToAllLocations(secureToken);
+                        _isMasterLoggedIn = true;
+                        UpdateLoginStatus(true);
+                    }
+                    else if (VerifySecureToken(token))
                     {
                         _isMasterLoggedIn = true;
                         UpdateLoginStatus(true);
+                    }
+                    else
+                    {
+                        // Invalid token - delete it
+                        DeleteTokenFromAllLocations();
                     }
                 }
             }
             catch { }
         }
         
+        /// <summary>
+        /// Computes SHA256 hash of password with salt - one-way, cannot be reversed
+        /// </summary>
+        private string ComputePasswordHash(string password)
+        {
+            using (var sha256 = SHA256.Create())
+            {
+                // Combine password with salt
+                string saltedPassword = password + HASH_SALT;
+                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(saltedPassword));
+                
+                // Convert to hex string
+                var sb = new StringBuilder();
+                foreach (byte b in bytes)
+                {
+                    sb.Append(b.ToString("x2"));
+                }
+                return sb.ToString();
+            }
+        }
+        
+        /// <summary>
+        /// Creates a machine-specific encrypted token that can't be copied to other computers
+        /// </summary>
+        private string CreateSecureToken()
+        {
+            // Create a token with machine ID and timestamp
+            string machineId = Environment.MachineName + Environment.UserName;
+            string timestamp = DateTime.UtcNow.ToString("yyyyMMdd");
+            string tokenData = $"MASTER_ACCESS|{machineId}|{timestamp}";
+            
+            // Hash it so it can't be easily read or modified
+            using (var sha256 = SHA256.Create())
+            {
+                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(tokenData + HASH_SALT));
+                var sb = new StringBuilder();
+                foreach (byte b in bytes)
+                {
+                    sb.Append(b.ToString("x2"));
+                }
+                return sb.ToString();
+            }
+        }
+        
+        /// <summary>
+        /// Verifies a token is valid for this machine
+        /// </summary>
+        private bool VerifySecureToken(string token)
+        {
+            // Generate what the token should be for today
+            string expectedToken = CreateSecureToken();
+            if (token == expectedToken) return true;
+            
+            // Also check yesterday's token (in case of timezone issues)
+            string machineId = Environment.MachineName + Environment.UserName;
+            string yesterday = DateTime.UtcNow.AddDays(-1).ToString("yyyyMMdd");
+            string yesterdayData = $"MASTER_ACCESS|{machineId}|{yesterday}";
+            
+            using (var sha256 = SHA256.Create())
+            {
+                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(yesterdayData + HASH_SALT));
+                var sb = new StringBuilder();
+                foreach (byte b in bytes)
+                {
+                    sb.Append(b.ToString("x2"));
+                }
+                if (token == sb.ToString()) return true;
+            }
+            
+            return false;
+        }
+        
         private void PerformMasterLogin()
         {
             string password = _loginPasswordBox.Text;
             
-            if (password == MASTER_PASSWORD)
+            // Hash the input password and compare to stored hash
+            string inputHash = ComputePasswordHash(password);
+            
+            if (inputHash == PASSWORD_HASH)
             {
-                // Success - write token file to all locations
+                // Success - write secure token file
                 try
                 {
-                    WriteTokenToAllLocations("MASTER_ACCESS_GRANTED");
+                    string secureToken = CreateSecureToken();
+                    WriteTokenToAllLocations(secureToken);
                     _isMasterLoggedIn = true;
                     UpdateLoginStatus(true);
                     _loginPasswordBox.Text = "";
@@ -655,6 +754,13 @@ namespace HoldfastModdingLauncher
                 _loginButton.Click -= (s, e) => PerformMasterLogin();
                 _loginButton.Click += (s, e) => PerformLogout();
                 _loginPasswordBox.Enabled = false;
+                
+                // Show debug console option for master users
+                if (_debugModeCheckBox != null)
+                {
+                    _debugModeCheckBox.Visible = true;
+                    _debugModeCheckBox.ForeColor = TextLight;
+                }
             }
             else
             {
@@ -662,6 +768,13 @@ namespace HoldfastModdingLauncher
                 _loginStatusLabel.ForeColor = TextGray;
                 _loginButton.Text = "Login";
                 _loginPasswordBox.Enabled = true;
+                
+                // Hide and uncheck debug console option
+                if (_debugModeCheckBox != null)
+                {
+                    _debugModeCheckBox.Visible = false;
+                    _debugModeCheckBox.Checked = false;
+                }
             }
         }
         
@@ -1364,10 +1477,13 @@ namespace HoldfastModdingLauncher
                 
                 Logger.LogInfo($"Launching with {enabledMods.Count} mod(s)");
 
+                // Debug mode only allowed for master login users
+                bool debugMode = _isMasterLoggedIn && _debugModeCheckBox.Checked;
+                
                 var gameProcess = await _injector.LaunchWithModsAsync(
                     holdfastPath, 
                     enabledMods, 
-                    _debugModeCheckBox.Checked,
+                    debugMode,
                     status => 
                     {
                         if (this.InvokeRequired)
