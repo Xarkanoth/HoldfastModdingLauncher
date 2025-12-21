@@ -727,10 +727,29 @@ namespace HoldfastModdingLauncher
                 _detailsDescLabel.Text = "";
                 _detailsReqLabel.Text = "";
             }
+            catch (UnauthorizedAccessException)
+            {
+                Logger.LogError($"Access denied when uninstalling mod {fileName}");
+                ConfirmDialog.ShowError(
+                    $"Cannot uninstall '{fileName}'.\n\n" +
+                    "The file is locked. Please close Holdfast and try again.",
+                    "File In Use");
+            }
+            catch (IOException ex) when (ex.Message.Contains("being used"))
+            {
+                Logger.LogError($"File in use when uninstalling mod {fileName}");
+                ConfirmDialog.ShowError(
+                    $"Cannot uninstall '{fileName}'.\n\n" +
+                    "The file is being used by another process.\n" +
+                    "Please close Holdfast and try again.",
+                    "File In Use");
+            }
             catch (Exception ex)
             {
                 Logger.LogError($"Failed to uninstall mod {fileName}: {ex.Message}");
-                ConfirmDialog.ShowError($"Failed to uninstall mod: {ex.Message}", "Error");
+                ConfirmDialog.ShowError(
+                    $"Failed to uninstall '{fileName}'.\n\n{ex.Message}",
+                    "Uninstall Error");
             }
         }
         

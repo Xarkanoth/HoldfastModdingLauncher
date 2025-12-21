@@ -45,14 +45,18 @@ namespace HoldfastModdingLauncher
         {
             this.SuspendLayout();
 
-            int formWidth = 450;
+            // Wider dialog for error messages which tend to be longer
+            int formWidth = icon == ConfirmDialogIcon.Error ? 520 : 450;
             int formHeight = 220;
 
-            // Calculate message height
+            // Calculate message height based on message length
             using (var g = this.CreateGraphics())
             {
-                var messageSize = g.MeasureString(message, new Font("Segoe UI", 10F), formWidth - 100);
-                formHeight = Math.Max(220, (int)messageSize.Height + 160);
+                var messageFont = new Font("Segoe UI", 10F);
+                var messageSize = g.MeasureString(message, messageFont, formWidth - 60);
+                formHeight = Math.Max(220, (int)messageSize.Height + 170);
+                // Cap height
+                formHeight = Math.Min(formHeight, 400);
             }
 
             // Form properties
