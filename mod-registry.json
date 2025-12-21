@@ -35,6 +35,32 @@
 
                                       ],
                      "isEnabled":  true
+                 },
+                 {
+                     "id":  "CustomSplashScreen",
+                     "name":  "Custom Splash Screen",
+                     "description":  "Replace the Holdfast splash screen with custom videos! Select from pre-defined splash videos or use your own custom video file. Press F8 in-game to configure.",
+                     "author":  "Xarkanoth",
+                     "version":  "1.0.0",
+                     "minLauncherVersion":  "1.0.80",
+                     "requirements":  "",
+                     "category":  "Visual",
+                     "tags":  [
+                                  "splash",
+                                  "video",
+                                  "customization",
+                                  "intro"
+                              ],
+                     "repositoryUrl":  "https://github.com/Xarkanoth/HoldfastMods",
+                     "infoUrl":  "",
+                     "releaseUrl":  "https://api.github.com/repos/Xarkanoth/HoldfastMods/releases/tags/CustomSplashScreen-v1.0.0",
+                     "downloadUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download/CustomSplashScreen-v1.0.0/CustomSplashScreen.dll",
+                     "dllName":  "CustomSplashScreen.dll",
+                     "iconUrl":  "",
+                     "screenshots":  [],
+                     "changelog":  "v1.0.0 - Initial release with settings UI and video selection.",
+                     "dependencies":  [],
+                     "isEnabled":  true
                  }
              ],
     "categories":  [
