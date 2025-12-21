@@ -1,26 +1,5 @@
-# Build outputs
-**/bin/
-**/obj/
-**/Release/
-**/Debug/
-**/Release_*/
-**/Distribution/
+# Ignore everything - this repo is for releases only
+*
 
-# Visual Studio
-.vs/
-*.user
-*.suo
-
-# NuGet
-packages/
-
-# Build artifacts
-*.dll
-*.pdb
-*.exe
-!HoldfastModdingLauncher/Mods/*.dll
-
-# Temp files
-*.tmp
-*.log
-
+# Except the README
+!README.md
