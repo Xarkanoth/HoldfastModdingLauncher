@@ -758,30 +758,162 @@ namespace HoldfastModdingLauncher
             DisclaimerForm.ShowDisclaimerInfo();
         }
         
+        private bool _disclaimerAccepted = false;
+        
         private void CheckFirstRunDisclaimer()
         {
             string disclaimerAcceptedFile = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "HoldfastModding", "disclaimer_accepted.txt");
             
-            if (!File.Exists(disclaimerAcceptedFile))
+            if (File.Exists(disclaimerAcceptedFile))
+            {
+                _disclaimerAccepted = true;
+                return;
+            }
+            
+            bool accepted = DisclaimerForm.ShowFirstRunDisclaimer();
+            
+            if (accepted)
+            {
+                // Create the folder and file to mark disclaimer as accepted
+                string folder = Path.GetDirectoryName(disclaimerAcceptedFile);
+                if (!Directory.Exists(folder))
+                    Directory.CreateDirectory(folder);
+                File.WriteAllText(disclaimerAcceptedFile, DateTime.Now.ToString());
+                _disclaimerAccepted = true;
+            }
+            else
+            {
+                // User declined - lock out the interface
+                _disclaimerAccepted = false;
+                ShowLockedOutState();
+            }
+        }
+        
+        private void ShowLockedOutState()
+        {
+            // Disable all modding controls
+            if (_playButton != null) _playButton.Enabled = false;
+            if (_modsPanel != null) _modsPanel.Enabled = false;
+            
+            // Create lockout overlay
+            var lockoutPanel = new Panel
+            {
+                Name = "lockoutPanel",
+                Location = new Point(0, 0),
+                Size = this.ClientSize,
+                BackColor = Color.FromArgb(240, 18, 18, 22),
+                Dock = DockStyle.Fill
+            };
+            
+            var lockIcon = new Label
+            {
+                Text = "🔒",
+                Font = new Font("Segoe UI", 48F),
+                ForeColor = Color.FromArgb(255, 180, 100),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            
+            var lockTitle = new Label
+            {
+                Text = "MODDING SYSTEM LOCKED",
+                Font = new Font("Segoe UI", 18F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(220, 80, 80),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            
+            var lockMessage = new Label
+            {
+                Text = "You must accept the disclaimer to use the modding launcher.\n\n" +
+                       "This tool is for legitimate modding purposes only.\n" +
+                       "Misuse for cheating or harassment is prohibited.",
+                Font = new Font("Segoe UI", 11F),
+                ForeColor = Color.FromArgb(180, 180, 180),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Size = new Size(450, 100),
+                BackColor = Color.Transparent
+            };
+            
+            var acceptButton = new Button
+            {
+                Text = "📜  Review & Accept Disclaimer",
+                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                Size = new Size(280, 45),
+                BackColor = Color.FromArgb(28, 28, 35),
+                ForeColor = Color.FromArgb(0, 200, 200),
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            acceptButton.FlatAppearance.BorderColor = Color.FromArgb(0, 200, 200);
+            acceptButton.Click += (s, e) =>
             {
                 bool accepted = DisclaimerForm.ShowFirstRunDisclaimer();
-                
                 if (accepted)
                 {
-                    // Create the folder and file to mark disclaimer as accepted
+                    string disclaimerAcceptedFile = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                        "HoldfastModding", "disclaimer_accepted.txt");
                     string folder = Path.GetDirectoryName(disclaimerAcceptedFile);
                     if (!Directory.Exists(folder))
                         Directory.CreateDirectory(folder);
                     File.WriteAllText(disclaimerAcceptedFile, DateTime.Now.ToString());
+                    _disclaimerAccepted = true;
+                    
+                    // Remove lockout and restore UI
+                    this.Controls.Remove(lockoutPanel);
+                    lockoutPanel.Dispose();
+                    if (_playButton != null) _playButton.Enabled = true;
+                    if (_modsPanel != null) _modsPanel.Enabled = true;
                 }
-                else
-                {
-                    // User declined - close the application
-                    Application.Exit();
-                }
-            }
+            };
+            
+            var exitButton = new Button
+            {
+                Text = "Exit",
+                Font = new Font("Segoe UI", 10F),
+                Size = new Size(100, 35),
+                BackColor = Color.FromArgb(28, 28, 35),
+                ForeColor = Color.FromArgb(140, 140, 140),
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            exitButton.FlatAppearance.BorderColor = Color.FromArgb(140, 140, 140);
+            exitButton.Click += (s, e) => Application.Exit();
+            
+            // Center controls
+            lockoutPanel.Controls.Add(lockIcon);
+            lockoutPanel.Controls.Add(lockTitle);
+            lockoutPanel.Controls.Add(lockMessage);
+            lockoutPanel.Controls.Add(acceptButton);
+            lockoutPanel.Controls.Add(exitButton);
+            
+            // Position on resize
+            lockoutPanel.Resize += (s, e) =>
+            {
+                int centerX = lockoutPanel.Width / 2;
+                int centerY = lockoutPanel.Height / 2;
+                
+                lockIcon.Location = new Point(centerX - lockIcon.Width / 2, centerY - 150);
+                lockTitle.Location = new Point(centerX - lockTitle.Width / 2, centerY - 70);
+                lockMessage.Location = new Point(centerX - lockMessage.Width / 2, centerY - 20);
+                acceptButton.Location = new Point(centerX - acceptButton.Width / 2, centerY + 90);
+                exitButton.Location = new Point(centerX - exitButton.Width / 2, centerY + 145);
+            };
+            
+            this.Controls.Add(lockoutPanel);
+            lockoutPanel.BringToFront();
+            
+            // Trigger initial layout by manually positioning
+            int centerX = lockoutPanel.Width / 2;
+            int centerY = lockoutPanel.Height / 2;
+            lockIcon.Location = new Point(centerX - lockIcon.Width / 2, centerY - 150);
+            lockTitle.Location = new Point(centerX - lockTitle.Width / 2, centerY - 70);
+            lockMessage.Location = new Point(centerX - lockMessage.Width / 2, centerY - 20);
+            acceptButton.Location = new Point(centerX - acceptButton.Width / 2, centerY + 90);
+            exitButton.Location = new Point(centerX - exitButton.Width / 2, centerY + 145);
         }
 
         private void UpdateModDetails(string modFileName)
