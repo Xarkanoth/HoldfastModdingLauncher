@@ -689,13 +689,12 @@ namespace HoldfastModdingLauncher
         
         private void UninstallMod(string fileName, string fullPath)
         {
-            var result = MessageBox.Show(
+            bool confirmed = ConfirmDialog.ShowConfirm(
                 $"Are you sure you want to uninstall '{fileName}'?\n\nThis will permanently delete the mod file.",
                 "Confirm Uninstall",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning);
+                ConfirmDialogIcon.Warning);
             
-            if (result != DialogResult.Yes)
+            if (!confirmed)
                 return;
             
             try
@@ -715,7 +714,7 @@ namespace HoldfastModdingLauncher
                     Logger.LogInfo($"Deleted manifest: {Path.GetFileName(jsonPath)}");
                 }
                 
-                ShowCustomMessage($"Successfully uninstalled '{fileName}'.", "Mod Uninstalled", MessageBoxIcon.Information);
+                ConfirmDialog.ShowSuccess($"Successfully uninstalled '{fileName}'.", "Mod Uninstalled");
                 
                 // Refresh the mod list
                 LoadMods();
@@ -731,7 +730,7 @@ namespace HoldfastModdingLauncher
             catch (Exception ex)
             {
                 Logger.LogError($"Failed to uninstall mod {fileName}: {ex.Message}");
-                ShowCustomMessage($"Failed to uninstall mod: {ex.Message}", "Error", MessageBoxIcon.Error);
+                ConfirmDialog.ShowError($"Failed to uninstall mod: {ex.Message}", "Error");
             }
         }
         
