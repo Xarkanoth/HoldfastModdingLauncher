@@ -1,0 +1,35 @@
+{
+    "schemaVersion": "1.0",
+    "lastUpdated": "2024-12-21T00:00:00Z",
+    "registryUrl": "https://raw.githubusercontent.com/Xarkanoth/HoldfastModdingLauncher/main/mod-registry.json",
+    "mods": [
+        {
+            "id": "AdvancedAdminUI",
+            "name": "Advanced Admin UI",
+            "description": "A comprehensive client-side admin tool suite for Holdfast: Nations at War. Features include Cavalry Visualization, Rambo Indicator, AFK Indicator, Minimap, and Admin UI.",
+            "author": "Xarkanoth",
+            "version": "1.0.23",
+            "minLauncherVersion": "1.0.80",
+            "requirements": "Requires RC login to use.",
+            "category": "Admin Tools",
+            "tags": ["admin", "minimap", "visualization", "cavalry", "afk"],
+            "repositoryUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher",
+            "releaseUrl": "https://api.github.com/repos/Xarkanoth/HoldfastModdingLauncher/releases/tags/mod-AdvancedAdminUI-v1.0.23",
+            "downloadUrl": "",
+            "dllName": "AdvancedAdminUI.dll",
+            "iconUrl": "",
+            "screenshots": [],
+            "changelog": "See GitHub releases for full changelog.",
+            "dependencies": [],
+            "isEnabled": true
+        }
+    ],
+    "categories": [
+        "Admin Tools",
+        "Gameplay",
+        "Visual",
+        "Audio",
+        "Utilities"
+    ]
+}
+
