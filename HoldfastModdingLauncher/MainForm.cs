@@ -397,11 +397,9 @@ namespace HoldfastModdingLauncher
                 BackColor = Color.Transparent
             };
             contentPanel.Controls.Add(_loginStatusLabel);
-            
-            // Check if already logged in (token file exists)
-            CheckExistingLogin();
 
             // Debug mode checkbox - Only visible to master login users
+            // MUST be created BEFORE CheckExistingLogin() so it can be shown/hidden
             _debugModeCheckBox = new CheckBox
             {
                 Text = "  🔧 Show Debug Console (Master Only)",
@@ -415,6 +413,10 @@ namespace HoldfastModdingLauncher
                 Visible = false  // Hidden by default, shown only when master logged in
             };
             contentPanel.Controls.Add(_debugModeCheckBox);
+            
+            // Check if already logged in (token file exists)
+            // This will show/hide the debug checkbox based on login status
+            CheckExistingLogin();
 
             // Play button - Moved down
             _playButton = new Button
