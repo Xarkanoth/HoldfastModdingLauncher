@@ -4,6 +4,14 @@ A launcher for managing mods for Holdfast: Nations At War.
 
 ---
 
+## 🖥️ PC ONLY
+
+**This modding launcher is for PC (Windows) players only.** Console players cannot use this system.
+
+However, this does **NOT affect console players** in any way - all mods are **client-side only** and only modify what the PC player sees on their own screen. Other players (including console players) are not impacted.
+
+---
+
 ## ⚠️ IMPORTANT DISCLAIMER
 
 **This is an UNOFFICIAL modding tool.** It is NOT developed, endorsed, or supported by **Anvil Game Studios** or the Holdfast development team. They have no control over this project.

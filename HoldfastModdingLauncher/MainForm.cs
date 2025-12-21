@@ -253,6 +253,24 @@ namespace HoldfastModdingLauncher
             _browseModsButton.Click += BrowseModsButton_Click;
             contentPanel.Controls.Add(_browseModsButton);
 
+            // Open Mods Folder button
+            var openModsFolderButton = new Button
+            {
+                Text = "📁 Open Mods Folder",
+                Font = new Font("Segoe UI", 9F),
+                Size = new Size(140, 28),
+                Location = new Point(formWidth - 435, 80),
+                BackColor = DarkPanel,
+                ForeColor = TextGray,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            openModsFolderButton.FlatAppearance.BorderColor = TextGray;
+            openModsFolderButton.FlatAppearance.BorderSize = 1;
+            openModsFolderButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(40, 40, 50);
+            openModsFolderButton.Click += (s, e) => OpenModsFolder();
+            contentPanel.Controls.Add(openModsFolderButton);
+
             // Mods panel (scrollable list) - Increased height
             _modsPanel = new Panel
             {
@@ -412,7 +430,7 @@ namespace HoldfastModdingLauncher
             // Disclaimer label at bottom
             var disclaimerLabel = new Label
             {
-                Text = "⚠ UNOFFICIAL TOOL - Not affiliated with Anvil Game Studios",
+                Text = "⚠ UNOFFICIAL TOOL - PC Only - Not affiliated with Anvil Game Studios",
                 Font = new Font("Segoe UI", 8F),
                 ForeColor = Color.FromArgb(255, 180, 100),
                 AutoSize = true,
@@ -684,6 +702,29 @@ namespace HoldfastModdingLauncher
                 // Refresh mods list after closing browser (in case mods were installed/uninstalled)
                 LoadMods();
                 CheckSetup();
+            }
+        }
+        
+        private void OpenModsFolder()
+        {
+            try
+            {
+                string modsFolder = _modManager.GetModsFolderPath();
+                
+                // Ensure folder exists
+                if (!Directory.Exists(modsFolder))
+                {
+                    Directory.CreateDirectory(modsFolder);
+                }
+                
+                // Open in Windows Explorer
+                System.Diagnostics.Process.Start("explorer.exe", modsFolder);
+                Logger.LogInfo($"Opened Mods folder: {modsFolder}");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Failed to open Mods folder: {ex.Message}");
+                ConfirmDialog.ShowError($"Could not open Mods folder:\n{ex.Message}", "Error");
             }
         }
         

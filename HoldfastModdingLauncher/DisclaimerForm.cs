@@ -30,7 +30,7 @@ namespace HoldfastModdingLauncher
             this.SuspendLayout();
 
             int formWidth = 550;
-            int formHeight = isFirstRun ? 520 : 480;
+            int formHeight = isFirstRun ? 550 : 510;
 
             // Form properties
             this.Text = "Holdfast Modding Launcher - Disclaimer";
@@ -134,6 +134,20 @@ namespace HoldfastModdingLauncher
             unofficialPanel.Controls.Add(unofficialText);
 
             yPos += 75;
+
+            // PC Only notice
+            var pcOnlyLabel = new Label
+            {
+                Text = "🖥️  PC ONLY - Client-side mods do not affect other players",
+                Font = new Font("Segoe UI", 9F, FontStyle.Italic),
+                ForeColor = TextGray,
+                AutoSize = true,
+                Location = new Point(20, yPos),
+                BackColor = Color.Transparent
+            };
+            this.Controls.Add(pcOnlyLabel);
+
+            yPos += 28;
 
             // Fair Play header
             var fairPlayHeader = new Label
