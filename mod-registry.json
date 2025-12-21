@@ -1,7 +1,9 @@
 {
-    "schemaVersion": "1.0",
+    "schemaVersion": "1.1",
     "lastUpdated": "2024-12-21T00:00:00Z",
     "registryUrl": "https://raw.githubusercontent.com/Xarkanoth/HoldfastModdingLauncher/main/mod-registry.json",
+    "modsBaseUrl": "https://raw.githubusercontent.com/Xarkanoth/HoldfastModdingLauncher/main/Mods",
+    "releasesBaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download",
     "mods": [
         {
             "id": "AdvancedAdminUI",
@@ -14,6 +16,7 @@
             "category": "Admin Tools",
             "tags": ["admin", "minimap", "visualization", "cavalry", "afk"],
             "repositoryUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher",
+            "infoUrl": "https://raw.githubusercontent.com/Xarkanoth/HoldfastModdingLauncher/main/Mods/AdvancedAdminUI/mod-info.json",
             "releaseUrl": "https://api.github.com/repos/Xarkanoth/HoldfastModdingLauncher/releases/tags/mod-AdvancedAdminUI-v1.0.23",
             "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/mod-AdvancedAdminUI-v1.0.23/AdvancedAdminUI.dll",
             "dllName": "AdvancedAdminUI.dll",
@@ -32,4 +35,3 @@
         "Utilities"
     ]
 }
-
