@@ -1,5 +1,43 @@
-# Ignore everything - this repo is for releases only
-*
+# Build outputs
+bin/
+obj/
+*.dll
+*.pdb
+*.exe
 
-# Except the README
+# IDE
+.vs/
+*.user
+*.suo
+
+# Keep mod source code
+!AdvancedAdminUI/
+!AdvancedAdminUI/**/*.cs
+!AdvancedAdminUI/**/*.csproj
+!AdvancedAdminUI/**/*.json
+
+# Keep launcher source code  
+!HoldfastModdingLauncher/
+!HoldfastModdingLauncher/**/*.cs
+!HoldfastModdingLauncher/**/*.csproj
+!HoldfastModdingLauncher/**/*.json
+!HoldfastModdingLauncher/**/*.ps1
+!HoldfastModdingLauncher/**/*.resx
+
+# Keep mod registry and documentation
+!mod-registry.json
 !README.md
+!Mods/
+!Mods/**/*.md
+!Mods/**/*.json
+
+# Keep workflows
+!.github/
+!.github/**/*
+
+# Keep BepInEx libs reference folder
+!BepInExLibs/
+
+# Release folders (generated)
+Release_*/
+HoldfastModdingLauncher_*.zip
