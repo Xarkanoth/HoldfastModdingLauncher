@@ -730,33 +730,11 @@ namespace HoldfastModdingLauncher
         
         private void UninstallMod(string fileName, string fullPath)
         {
-            bool confirmed = ConfirmDialog.ShowConfirm(
-                $"Are you sure you want to uninstall '{fileName}'?\n\nThis will permanently delete the mod file.",
-                "Confirm Uninstall",
-                ConfirmDialogIcon.Warning);
+            // Use custom uninstall dialog
+            bool success = ModUninstallDialog.ShowUninstallDialog(fileName, fullPath);
             
-            if (!confirmed)
-                return;
-            
-            try
+            if (success)
             {
-                // Delete the DLL file
-                if (File.Exists(fullPath))
-                {
-                    File.Delete(fullPath);
-                    Logger.LogInfo($"Uninstalled mod: {fileName}");
-                }
-                
-                // Also delete the manifest JSON if it exists
-                string jsonPath = Path.ChangeExtension(fullPath, ".json");
-                if (File.Exists(jsonPath))
-                {
-                    File.Delete(jsonPath);
-                    Logger.LogInfo($"Deleted manifest: {Path.GetFileName(jsonPath)}");
-                }
-                
-                ConfirmDialog.ShowSuccess($"Successfully uninstalled '{fileName}'.", "Mod Uninstalled");
-                
                 // Refresh the mod list
                 LoadMods();
                 CheckSetup();
@@ -767,30 +745,6 @@ namespace HoldfastModdingLauncher
                 _detailsTitleLabel.ForeColor = TextGray;
                 _detailsDescLabel.Text = "";
                 _detailsReqLabel.Text = "";
-            }
-            catch (UnauthorizedAccessException)
-            {
-                Logger.LogError($"Access denied when uninstalling mod {fileName}");
-                ConfirmDialog.ShowError(
-                    $"Cannot uninstall '{fileName}'.\n\n" +
-                    "The file is locked. Please close Holdfast and try again.",
-                    "File In Use");
-            }
-            catch (IOException ex) when (ex.Message.Contains("being used"))
-            {
-                Logger.LogError($"File in use when uninstalling mod {fileName}");
-                ConfirmDialog.ShowError(
-                    $"Cannot uninstall '{fileName}'.\n\n" +
-                    "The file is being used by another process.\n" +
-                    "Please close Holdfast and try again.",
-                    "File In Use");
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"Failed to uninstall mod {fileName}: {ex.Message}");
-                ConfirmDialog.ShowError(
-                    $"Failed to uninstall '{fileName}'.\n\n{ex.Message}",
-                    "Uninstall Error");
             }
         }
         
