@@ -737,23 +737,7 @@ namespace HoldfastModdingLauncher
         
         private void ShowDisclaimer()
         {
-            string disclaimer = @"⚠️ IMPORTANT DISCLAIMER
-
-This is an UNOFFICIAL modding tool. It is NOT developed, endorsed, or supported by Anvil Game Studios or the Holdfast development team. They have no control over this project.
-
-FAIR PLAY NOTICE:
-• This tool is intended for legitimate modding purposes only
-• DO NOT use any mods to cheat, exploit, or gain unfair advantages
-• DO NOT use mods to harass, grief, or abuse other players
-• Respect server rules and the game's Terms of Service
-• Misuse of mods may result in bans from game servers
-
-By using this tool, you acknowledge that you are solely responsible for how you use it.
-
-Holdfast: Nations At War is a trademark of Anvil Game Studios.
-This project is not affiliated with Anvil Game Studios.";
-
-            ShowCustomMessage(disclaimer, "Disclaimer", MessageBoxIcon.Warning);
+            DisclaimerForm.ShowDisclaimerInfo();
         }
         
         private void CheckFirstRunDisclaimer()
@@ -764,20 +748,9 @@ This project is not affiliated with Anvil Game Studios.";
             
             if (!File.Exists(disclaimerAcceptedFile))
             {
-                var result = MessageBox.Show(
-                    "⚠️ IMPORTANT DISCLAIMER\n\n" +
-                    "This is an UNOFFICIAL modding tool. It is NOT developed, endorsed, or supported by Anvil Game Studios.\n\n" +
-                    "FAIR PLAY NOTICE:\n" +
-                    "• DO NOT use mods to cheat or gain unfair advantages\n" +
-                    "• DO NOT use mods to harass or abuse other players\n" +
-                    "• Respect server rules and Terms of Service\n\n" +
-                    "By clicking 'Yes', you acknowledge that you are solely responsible for how you use this tool.\n\n" +
-                    "Do you accept these terms?",
-                    "Disclaimer - Holdfast Modding Launcher",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Warning);
+                bool accepted = DisclaimerForm.ShowFirstRunDisclaimer();
                 
-                if (result == DialogResult.Yes)
+                if (accepted)
                 {
                     // Create the folder and file to mark disclaimer as accepted
                     string folder = Path.GetDirectoryName(disclaimerAcceptedFile);
