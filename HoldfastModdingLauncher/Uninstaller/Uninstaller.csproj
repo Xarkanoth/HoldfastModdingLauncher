@@ -8,6 +8,12 @@
     <Nullable>disable</Nullable>
     <AssemblyName>Uninstall</AssemblyName>
     <ApplicationIcon>..\Resources\Xark.ico</ApplicationIcon>
+    
+    <!-- Self-contained single-file exe so it works standalone -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
 </Project>

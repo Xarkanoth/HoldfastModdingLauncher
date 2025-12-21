@@ -60,12 +60,12 @@ if ($verifyVersion -ne $newVersion) {
 Write-Host "`nBuilding Release configuration..." -ForegroundColor Yellow
 dotnet build HoldfastModdingLauncher.csproj -c Release /p:Version=$newVersion
 
-# Build Uninstaller
+# Build Uninstaller as self-contained single-file exe
 Write-Host "`nBuilding Uninstaller..." -ForegroundColor Yellow
 $uninstallerPath = Join-Path $scriptPath "Uninstaller"
 if (Test-Path (Join-Path $uninstallerPath "Uninstaller.csproj")) {
     Push-Location $uninstallerPath
-    dotnet build Uninstaller.csproj -c Release
+    dotnet publish Uninstaller.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true
     Pop-Location
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Warning: Uninstaller build failed, continuing without it." -ForegroundColor Yellow
@@ -142,13 +142,20 @@ if ($LASTEXITCODE -eq 0) {
         }
     }
     
-    # Copy Uninstaller if it was built
-    $uninstallerExe = Join-Path $scriptPath "Uninstaller\bin\Release\net6.0-windows\Uninstall.exe"
+    # Copy Uninstaller if it was built (published as self-contained single-file)
+    $uninstallerExe = Join-Path $scriptPath "Uninstaller\bin\Release\net6.0-windows\win-x64\publish\Uninstall.exe"
     if (Test-Path $uninstallerExe) {
         Copy-Item -Path $uninstallerExe -Destination $versionedPath -Force
         Write-Host "  [OK] Uninstall.exe" -ForegroundColor Green
     } else {
-        Write-Host "  [SKIP] Uninstall.exe (not built)" -ForegroundColor Yellow
+        # Try alternate path
+        $uninstallerExeAlt = Join-Path $scriptPath "Uninstaller\bin\Release\net6.0-windows\Uninstall.exe"
+        if (Test-Path $uninstallerExeAlt) {
+            Copy-Item -Path $uninstallerExeAlt -Destination $versionedPath -Force
+            Write-Host "  [OK] Uninstall.exe" -ForegroundColor Green
+        } else {
+            Write-Host "  [SKIP] Uninstall.exe (not built)" -ForegroundColor Yellow
+        }
     }
     
     # Create version info file (for display)
