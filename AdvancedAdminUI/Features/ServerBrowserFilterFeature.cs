@@ -54,7 +54,7 @@ namespace AdvancedAdminUI.Features
         }
         
         private static float _lastServerScan = 0f;
-        private const float SERVER_SCAN_INTERVAL = 0.5f; // Scan every 0.5 seconds when in server browser
+        private const float SERVER_SCAN_INTERVAL = 0.2f; // Scan every 0.2 seconds to catch scroll view recycling
         
         // UI Path to server browser content
         private const string SERVER_BROWSER_PATH = "MainCanvas/Main Menu Panels/Panel Container/Play/Server Browser/Server Browser Container/Browser Container/Scroll View/Viewport/Content";
@@ -80,8 +80,12 @@ namespace AdvancedAdminUI.Features
             }
         }
         
+        // Track which servers we've already destroyed to avoid log spam
+        private static HashSet<string> _destroyedServers = new HashSet<string>();
+        private static float _lastBrowserOpenTime = 0f;
+        
         /// <summary>
-        /// Scans the server browser and hides/destroys official server entries
+        /// Scans the server browser and destroys official server entries
         /// </summary>
         private void FilterServerBrowserItems()
         {
@@ -90,12 +94,27 @@ namespace AdvancedAdminUI.Features
                 // Find the server browser content container
                 GameObject contentObj = GameObject.Find(SERVER_BROWSER_PATH);
                 if (contentObj == null)
-                    return; // Server browser not open
+                {
+                    // Server browser closed - reset tracking for next time
+                    if (_destroyedServers.Count > 0)
+                    {
+                        _destroyedServers.Clear();
+                        _lastBrowserOpenTime = 0f;
+                    }
+                    return;
+                }
+                
+                // Track when browser opens to reset destroyed list
+                if (_lastBrowserOpenTime == 0f)
+                {
+                    _lastBrowserOpenTime = Time.time;
+                    _destroyedServers.Clear();
+                }
                 
                 Transform content = contentObj.transform;
                 int filteredCount = 0;
                 
-                // Iterate through all server items
+                // Iterate through all server items (backwards since we may destroy)
                 for (int i = content.childCount - 1; i >= 0; i--)
                 {
                     Transform serverItem = content.GetChild(i);
@@ -104,20 +123,27 @@ namespace AdvancedAdminUI.Features
                     if (!serverItem.name.Contains("HarperServerBrowserItem"))
                         continue;
                     
+                    // Skip if already inactive (might be recycled/disabled by scroll)
+                    if (!serverItem.gameObject.activeInHierarchy)
+                        continue;
+                    
                     // Try to find the server name text
                     string serverName = GetServerName(serverItem);
                     
                     if (ShouldFilterServer(serverName))
                     {
-                        // Destroy or hide the official server entry
-                        serverItem.gameObject.SetActive(false);
+                        // Destroy the official server entry completely
+                        // Using Destroy instead of SetActive because scroll view re-enables items
+                        GameObject.Destroy(serverItem.gameObject);
                         filteredCount++;
+                        
+                        // Track for logging (avoid spam)
+                        if (!_destroyedServers.Contains(serverName))
+                        {
+                            _destroyedServers.Add(serverName);
+                            _log?.LogInfo($"[ServerBrowserFilter] Removed official server: {serverName}");
+                        }
                     }
-                }
-                
-                if (filteredCount > 0)
-                {
-                    _log?.LogDebug($"[ServerBrowserFilter] Filtered {filteredCount} official server(s)");
                 }
             }
             catch (Exception ex)
@@ -128,59 +154,72 @@ namespace AdvancedAdminUI.Features
         
         /// <summary>
         /// Extracts the server name from a HarperServerBrowserItem
+        /// Path: HarperServerBrowserItem(Clone)/Main Item Container/Server Title Text
+        /// Component: TMPro.TextMeshProUGUI
         /// </summary>
         private string GetServerName(Transform serverItem)
         {
-            // Try common patterns for finding server name text
-            // Pattern 1: Direct child with Text component
-            Text[] texts = serverItem.GetComponentsInChildren<Text>(true);
-            foreach (var text in texts)
+            // Try the exact known path first
+            // HarperServerBrowserItem(Clone)/Main Item Container/Server Title Text
+            Transform mainContainer = serverItem.Find("Main Item Container");
+            if (mainContainer != null)
             {
-                // Look for the server name text (usually the first/largest text, or has specific name)
-                string parentName = text.transform.parent?.name?.ToLower() ?? "";
-                string objName = text.name.ToLower();
-                
-                // Common naming patterns for server name
-                if (objName.Contains("name") || objName.Contains("server") || 
-                    objName.Contains("title") || parentName.Contains("name"))
+                Transform serverTitleText = mainContainer.Find("Server Title Text");
+                if (serverTitleText != null)
                 {
-                    return text.text;
-                }
-            }
-            
-            // Fallback: Return the first text that looks like a server name
-            foreach (var text in texts)
-            {
-                if (!string.IsNullOrEmpty(text.text) && text.text.Length > 5)
-                {
-                    // Skip player counts, ping, etc.
-                    if (int.TryParse(text.text, out _))
-                        continue;
-                    if (text.text.Contains("ms") || text.text.Contains("/"))
-                        continue;
-                    
-                    return text.text;
-                }
-            }
-            
-            // Also try TMPro text (TextMeshPro)
-            var tmpTexts = serverItem.GetComponentsInChildren<Component>(true)
-                .Where(c => c.GetType().Name.Contains("TMP_Text") || c.GetType().Name.Contains("TextMeshPro"));
-            
-            foreach (var tmp in tmpTexts)
-            {
-                var textProp = tmp.GetType().GetProperty("text");
-                if (textProp != null)
-                {
-                    string tmpText = textProp.GetValue(tmp) as string;
-                    if (!string.IsNullOrEmpty(tmpText) && tmpText.Length > 5)
+                    // Get TextMeshProUGUI component via reflection (to avoid hard dependency)
+                    var tmpComponent = serverTitleText.GetComponent("TextMeshProUGUI");
+                    if (tmpComponent != null)
                     {
-                        if (int.TryParse(tmpText, out _))
-                            continue;
-                        if (tmpText.Contains("ms") || tmpText.Contains("/"))
-                            continue;
-                        
-                        return tmpText;
+                        var textProp = tmpComponent.GetType().GetProperty("text");
+                        if (textProp != null)
+                        {
+                            string serverName = textProp.GetValue(tmpComponent) as string;
+                            if (!string.IsNullOrEmpty(serverName))
+                            {
+                                return serverName;
+                            }
+                        }
+                    }
+                    
+                    // Also try TMP_Text base class
+                    var allComponents = serverTitleText.GetComponents<Component>();
+                    foreach (var comp in allComponents)
+                    {
+                        if (comp.GetType().Name.Contains("TextMeshPro") || comp.GetType().Name.Contains("TMP_Text"))
+                        {
+                            var textProp = comp.GetType().GetProperty("text");
+                            if (textProp != null)
+                            {
+                                string serverName = textProp.GetValue(comp) as string;
+                                if (!string.IsNullOrEmpty(serverName))
+                                {
+                                    return serverName;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Fallback: Search all TMPro components
+            var allTmpComponents = serverItem.GetComponentsInChildren<Component>(true)
+                .Where(c => c.GetType().Name.Contains("TextMeshPro") || c.GetType().Name.Contains("TMP_Text"));
+            
+            foreach (var tmp in allTmpComponents)
+            {
+                // Check if this is in the "Server Title Text" object
+                if (tmp.transform.name == "Server Title Text" || 
+                    tmp.transform.parent?.name == "Server Title Text")
+                {
+                    var textProp = tmp.GetType().GetProperty("text");
+                    if (textProp != null)
+                    {
+                        string serverName = textProp.GetValue(tmp) as string;
+                        if (!string.IsNullOrEmpty(serverName))
+                        {
+                            return serverName;
+                        }
                     }
                 }
             }
