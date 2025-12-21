@@ -99,7 +99,31 @@ namespace HoldfastModdingLauncher
             // Load custom icon
             LoadIcon();
             
+            // Subscribe to form closing to ensure vanilla by default
+            this.FormClosing += MainForm_FormClosing;
+            
             this.ResumeLayout(false);
+        }
+        
+        /// <summary>
+        /// When the launcher closes, disable BepInEx doorstop so that
+        /// launching Holdfast.exe directly runs vanilla (no mods).
+        /// </summary>
+        private void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
+        {
+            try
+            {
+                string? holdfastPath = _holdfastManager.FindHoldfastInstallation();
+                if (!string.IsNullOrEmpty(holdfastPath))
+                {
+                    _injector.EnsureVanillaByDefault(holdfastPath);
+                    Logger.LogInfo("Disabled BepInEx doorstop - Holdfast.exe will run vanilla");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning($"Could not disable doorstop on close: {ex.Message}");
+            }
         }
 
         private void LoadIcon()
@@ -1510,6 +1534,9 @@ namespace HoldfastModdingLauncher
                             // Wait for the game process to exit
                             await gameProcess.WaitForExitAsync();
                             
+                            // Disable BepInEx doorstop so direct Holdfast.exe launches run vanilla
+                            _injector.EnsureVanillaByDefault(holdfastPath);
+                            
                             // Update UI on the main thread
                             if (this.InvokeRequired)
                             {
@@ -1527,12 +1554,13 @@ namespace HoldfastModdingLauncher
                                 _playButton.Enabled = true;
                             }
                             
-                            Logger.LogInfo("Holdfast has closed");
+                            Logger.LogInfo("Holdfast has closed - BepInEx disabled for vanilla play");
                         }
                         catch (Exception ex)
                         {
                             Logger.LogError($"Error monitoring game process: {ex.Message}");
-                            // Still re-enable the button on error
+                            // Still disable doorstop and re-enable the button on error
+                            try { _injector.EnsureVanillaByDefault(holdfastPath); } catch { }
                             if (this.InvokeRequired)
                             {
                                 this.Invoke((MethodInvoker)delegate 

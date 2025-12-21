@@ -70,6 +70,9 @@ namespace HoldfastModdingLauncher.Core
 
                 // Configure BepInEx
                 ConfigureBepInEx(holdfastPath, showConsole);
+                
+                // Enable doorstop so BepInEx loads
+                EnableDoorstop(holdfastPath);
 
                 // Launch Holdfast
                 statusCallback?.Invoke("Launching game...");
@@ -82,6 +85,9 @@ namespace HoldfastModdingLauncher.Core
 
                 var process = Process.Start(startInfo);
                 Logger.LogInfo("Holdfast launched with mods!");
+                
+                // Note: We keep doorstop enabled while game is running
+                // It will be disabled when launching vanilla or by user choice
                 return process;
             }
             catch (Exception ex)
@@ -93,7 +99,7 @@ namespace HoldfastModdingLauncher.Core
 
         /// <summary>
         /// Launches Holdfast in vanilla mode (no mods).
-        /// Removes BepInEx from the game folder first.
+        /// Disables BepInEx doorstop so mods don't load.
         /// </summary>
         public bool LaunchVanilla(string holdfastPath)
         {
@@ -109,8 +115,8 @@ namespace HoldfastModdingLauncher.Core
             {
                 Logger.LogInfo("Launching Holdfast in vanilla mode...");
 
-                // Remove BepInEx from game folder
-                UninstallBepInEx(holdfastPath);
+                // Disable BepInEx doorstop (keeps files but doesn't load)
+                DisableDoorstop(holdfastPath);
 
                 // Launch Holdfast
                 var startInfo = new ProcessStartInfo
@@ -129,6 +135,18 @@ namespace HoldfastModdingLauncher.Core
                 Logger.LogError($"Failed to launch vanilla: {ex}");
                 return false;
             }
+        }
+        
+        /// <summary>
+        /// Ensures BepInEx is disabled so direct Holdfast.exe launches run vanilla.
+        /// Call this after the game exits or when the launcher closes.
+        /// </summary>
+        public void EnsureVanillaByDefault(string holdfastPath)
+        {
+            if (string.IsNullOrEmpty(holdfastPath) || !Directory.Exists(holdfastPath))
+                return;
+                
+            DisableDoorstop(holdfastPath);
         }
 
         /// <summary>
@@ -268,6 +286,112 @@ Enabled = {(showConsole ? "true" : "false")}
 Enabled = true
 ";
             File.WriteAllText(configPath, config);
+        }
+        
+        /// <summary>
+        /// Enables BepInEx doorstop (allows mods to load).
+        /// Call this before launching with mods.
+        /// </summary>
+        public void EnableDoorstop(string holdfastPath)
+        {
+            string doorstopConfig = Path.Combine(holdfastPath, "doorstop_config.ini");
+            
+            if (!File.Exists(doorstopConfig))
+            {
+                Logger.LogWarning("doorstop_config.ini not found, BepInEx may not be installed");
+                return;
+            }
+            
+            try
+            {
+                string content = File.ReadAllText(doorstopConfig);
+                
+                // Replace enabled=false with enabled=true
+                if (content.Contains("enabled=false"))
+                {
+                    content = content.Replace("enabled=false", "enabled=true");
+                    File.WriteAllText(doorstopConfig, content);
+                    Logger.LogInfo("BepInEx doorstop ENABLED - mods will load");
+                }
+                else if (content.Contains("enabled=true"))
+                {
+                    Logger.LogInfo("BepInEx doorstop already enabled");
+                }
+                else
+                {
+                    // Old format or missing - add/update the setting
+                    if (!content.Contains("[General]"))
+                    {
+                        content = "[General]\nenabled=true\n" + content;
+                    }
+                    else
+                    {
+                        content = content.Replace("[General]", "[General]\nenabled=true");
+                    }
+                    File.WriteAllText(doorstopConfig, content);
+                    Logger.LogInfo("BepInEx doorstop enabled (added setting)");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Failed to enable doorstop: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Disables BepInEx doorstop (vanilla mode - no mods load).
+        /// This allows Holdfast.exe to run vanilla when launched directly.
+        /// </summary>
+        public void DisableDoorstop(string holdfastPath)
+        {
+            string doorstopConfig = Path.Combine(holdfastPath, "doorstop_config.ini");
+            
+            if (!File.Exists(doorstopConfig))
+            {
+                return; // Nothing to disable
+            }
+            
+            try
+            {
+                string content = File.ReadAllText(doorstopConfig);
+                
+                // Replace enabled=true with enabled=false
+                if (content.Contains("enabled=true"))
+                {
+                    content = content.Replace("enabled=true", "enabled=false");
+                    File.WriteAllText(doorstopConfig, content);
+                    Logger.LogInfo("BepInEx doorstop DISABLED - Holdfast.exe will run vanilla");
+                }
+                else
+                {
+                    Logger.LogInfo("BepInEx doorstop already disabled");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Failed to disable doorstop: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Checks if BepInEx doorstop is currently enabled.
+        /// </summary>
+        public bool IsDoorstopEnabled(string holdfastPath)
+        {
+            string doorstopConfig = Path.Combine(holdfastPath, "doorstop_config.ini");
+            
+            if (!File.Exists(doorstopConfig))
+                return false;
+            
+            try
+            {
+                string content = File.ReadAllText(doorstopConfig);
+                return content.Contains("enabled=true");
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         /// <summary>
