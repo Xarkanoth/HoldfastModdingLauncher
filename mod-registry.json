@@ -15,7 +15,7 @@
             "tags": ["admin", "minimap", "visualization", "cavalry", "afk"],
             "repositoryUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher",
             "releaseUrl": "https://api.github.com/repos/Xarkanoth/HoldfastModdingLauncher/releases/tags/mod-AdvancedAdminUI-v1.0.23",
-            "downloadUrl": "",
+            "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/mod-AdvancedAdminUI-v1.0.23/AdvancedAdminUI.dll",
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],

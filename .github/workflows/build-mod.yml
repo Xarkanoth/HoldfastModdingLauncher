@@ -1,0 +1,312 @@
+# GitHub Actions workflow for building and releasing Holdfast mods
+# 
+# Triggers:
+#   - Push to main branch with changes in mod folders
+#   - Manual dispatch with mod name and version parameters
+#
+# This workflow:
+#   1. Builds the specified mod project
+#   2. Creates a GitHub Release with the DLL
+#   3. Updates the mod-registry.json
+
+name: Build and Release Mod
+
+on:
+  # Trigger on push to main for mod code changes
+  push:
+    branches: [main]
+    paths:
+      - 'AdvancedAdminUI/**'
+      - 'ModVersions.json'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      mod_name:
+        description: 'Mod folder name (e.g., AdvancedAdminUI)'
+        required: true
+        default: 'AdvancedAdminUI'
+        type: string
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  DOTNET_VERSION: '6.0.x'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Determine mod to build
+        id: determine_mod
+        shell: pwsh
+        run: |
+          # Use input if manual dispatch, otherwise detect from changed files
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $modName = "${{ inputs.mod_name }}"
+          } else {
+            # Get changed files
+            $changedFiles = git diff --name-only HEAD~1 HEAD
+            
+            # Check which mod folder changed
+            $modName = $null
+            foreach ($file in $changedFiles) {
+              if ($file -match "^([^/]+)/") {
+                $folder = $Matches[1]
+                if (Test-Path "$folder/$folder.csproj") {
+                  $modName = $folder
+                  break
+                }
+              }
+            }
+            
+            if (-not $modName) {
+              Write-Host "No mod changes detected, skipping build"
+              echo "skip=true" >> $env:GITHUB_OUTPUT
+              exit 0
+            }
+          }
+          
+          echo "mod_name=$modName" >> $env:GITHUB_OUTPUT
+          echo "skip=false" >> $env:GITHUB_OUTPUT
+          Write-Host "Building mod: $modName"
+      
+      - name: Load mod info
+        if: steps.determine_mod.outputs.skip != 'true'
+        id: mod_info
+        shell: pwsh
+        run: |
+          $modName = "${{ steps.determine_mod.outputs.mod_name }}"
+          $versionsFile = "ModVersions.json"
+          
+          if (Test-Path $versionsFile) {
+            $versions = Get-Content $versionsFile -Raw | ConvertFrom-Json
+            $modInfo = $versions.Mods.$modName
+            
+            if ($modInfo) {
+              $currentVersion = $modInfo.Version
+              $displayName = if ($modInfo.DisplayName) { $modInfo.DisplayName } else { $modName }
+              $dllName = if ($modInfo.DllName) { $modInfo.DllName } else { "$modName.dll" }
+              
+              # Calculate new version
+              $versionParts = $currentVersion.Split('.')
+              $major = [int]$versionParts[0]
+              $minor = [int]$versionParts[1]
+              $patch = [int]$versionParts[2]
+              
+              $bumpType = "${{ inputs.version_bump }}"
+              if (-not $bumpType) { $bumpType = "patch" }
+              
+              switch ($bumpType) {
+                "major" { $major++; $minor = 0; $patch = 0 }
+                "minor" { $minor++; $patch = 0 }
+                "patch" { $patch++ }
+              }
+              
+              $newVersion = "$major.$minor.$patch"
+              
+              echo "current_version=$currentVersion" >> $env:GITHUB_OUTPUT
+              echo "new_version=$newVersion" >> $env:GITHUB_OUTPUT
+              echo "display_name=$displayName" >> $env:GITHUB_OUTPUT
+              echo "dll_name=$dllName" >> $env:GITHUB_OUTPUT
+              
+              Write-Host "Current version: $currentVersion"
+              Write-Host "New version: $newVersion"
+              Write-Host "Display name: $displayName"
+              Write-Host "DLL name: $dllName"
+            } else {
+              Write-Host "Error: Mod '$modName' not found in ModVersions.json"
+              exit 1
+            }
+          } else {
+            Write-Host "Error: ModVersions.json not found"
+            exit 1
+          }
+      
+      - name: Update version in source files
+        if: steps.determine_mod.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          $modName = "${{ steps.determine_mod.outputs.mod_name }}"
+          $newVersion = "${{ steps.mod_info.outputs.new_version }}"
+          
+          # Update ModVersions.json
+          $versionsFile = "ModVersions.json"
+          $versions = Get-Content $versionsFile -Raw | ConvertFrom-Json
+          $versions.Mods.$modName.Version = $newVersion
+          $versions | ConvertTo-Json -Depth 10 | Set-Content $versionsFile -Encoding UTF8
+          
+          # Update BepInPlugin attribute in source
+          $sourceFile = "$modName/${modName}Mod.cs"
+          if (Test-Path $sourceFile) {
+            $content = Get-Content $sourceFile -Raw
+            $pattern = '\[BepInPlugin\("([^"]+)",\s*"([^"]+)",\s*"[^"]+"\)\]'
+            $replacement = "[BepInPlugin(`"`$1`", `"`$2`", `"$newVersion`")]"
+            $newContent = $content -replace $pattern, $replacement
+            Set-Content $sourceFile -Value $newContent -NoNewline
+            Write-Host "Updated BepInPlugin version in $sourceFile"
+          }
+          
+          # Update .csproj version
+          $csprojFile = "$modName/$modName.csproj"
+          if (Test-Path $csprojFile) {
+            $content = Get-Content $csprojFile -Raw
+            $content = $content -replace '<Version>[^<]+</Version>', "<Version>$newVersion</Version>"
+            $content = $content -replace '<AssemblyVersion>[^<]+</AssemblyVersion>', "<AssemblyVersion>$newVersion.0</AssemblyVersion>"
+            $content = $content -replace '<FileVersion>[^<]+</FileVersion>', "<FileVersion>$newVersion.0</FileVersion>"
+            Set-Content $csprojFile -Value $content -NoNewline
+            Write-Host "Updated version in $csprojFile"
+          }
+      
+      - name: Build mod
+        if: steps.determine_mod.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          $modName = "${{ steps.determine_mod.outputs.mod_name }}"
+          $newVersion = "${{ steps.mod_info.outputs.new_version }}"
+          
+          Push-Location $modName
+          dotnet restore
+          dotnet build -c Release /p:Version=$newVersion
+          Pop-Location
+      
+      - name: Find built DLL
+        if: steps.determine_mod.outputs.skip != 'true'
+        id: find_dll
+        shell: pwsh
+        run: |
+          $modName = "${{ steps.determine_mod.outputs.mod_name }}"
+          $dllName = "${{ steps.mod_info.outputs.dll_name }}"
+          
+          $possiblePaths = @(
+            "$modName/bin/Release/net472/$dllName",
+            "$modName/bin/Release/$dllName",
+            "$dllName"
+          )
+          
+          $dllPath = $null
+          foreach ($path in $possiblePaths) {
+            if (Test-Path $path) {
+              $dllPath = $path
+              break
+            }
+          }
+          
+          if (-not $dllPath) {
+            Write-Host "Error: Could not find built DLL"
+            Write-Host "Searched paths:"
+            $possiblePaths | ForEach-Object { Write-Host "  - $_" }
+            exit 1
+          }
+          
+          echo "dll_path=$dllPath" >> $env:GITHUB_OUTPUT
+          Write-Host "Found DLL at: $dllPath"
+      
+      - name: Update mod-registry.json
+        if: steps.determine_mod.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          $modName = "${{ steps.determine_mod.outputs.mod_name }}"
+          $newVersion = "${{ steps.mod_info.outputs.new_version }}"
+          $registryFile = "mod-registry.json"
+          
+          if (Test-Path $registryFile) {
+            $registry = Get-Content $registryFile -Raw | ConvertFrom-Json
+            
+            # Find and update the mod entry
+            $modEntry = $registry.mods | Where-Object { $_.id -eq $modName }
+            if ($modEntry) {
+              $modEntry.version = $newVersion
+              $registry.lastUpdated = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+              $registry | ConvertTo-Json -Depth 10 | Set-Content $registryFile -Encoding UTF8
+              Write-Host "Updated mod-registry.json to version $newVersion"
+            } else {
+              Write-Host "Warning: Mod '$modName' not found in registry"
+            }
+          }
+      
+      - name: Commit version updates
+        if: steps.determine_mod.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          $modName = "${{ steps.determine_mod.outputs.mod_name }}"
+          $newVersion = "${{ steps.mod_info.outputs.new_version }}"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add ModVersions.json mod-registry.json
+          git add "$modName/${modName}Mod.cs" "$modName/$modName.csproj" 2>$null
+          
+          git diff --staged --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "chore: bump $modName to v$newVersion [skip ci]"
+            git push
+            Write-Host "Committed version updates"
+          } else {
+            Write-Host "No changes to commit"
+          }
+      
+      - name: Create Release
+        if: steps.determine_mod.outputs.skip != 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.mod_info.outputs.new_version }}-${{ steps.determine_mod.outputs.mod_name }}
+          name: ${{ steps.mod_info.outputs.display_name }} v${{ steps.mod_info.outputs.new_version }}
+          body: |
+            ## ${{ steps.mod_info.outputs.display_name }} v${{ steps.mod_info.outputs.new_version }}
+            
+            ### Installation
+            1. Download the DLL file below
+            2. Place it in your launcher's Mods folder
+            3. Or use the **Mod Browser** in the Holdfast Modding Launcher to install automatically
+            
+            ### Automated Release
+            This release was created automatically by GitHub Actions.
+            See commit history for changes.
+          files: ${{ steps.find_dll.outputs.dll_path }}
+          prerelease: ${{ inputs.prerelease || false }}
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Summary
+        if: steps.determine_mod.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          $modName = "${{ steps.determine_mod.outputs.mod_name }}"
+          $displayName = "${{ steps.mod_info.outputs.display_name }}"
+          $newVersion = "${{ steps.mod_info.outputs.new_version }}"
+          
+          Write-Host "`n========================================" -ForegroundColor Green
+          Write-Host "   Release Published Successfully!" -ForegroundColor Green
+          Write-Host "========================================" -ForegroundColor Green
+          Write-Host ""
+          Write-Host "Mod: $displayName" -ForegroundColor Cyan
+          Write-Host "Version: v$newVersion" -ForegroundColor Cyan
+          Write-Host ""
+          Write-Host "The mod is now available in the Mod Browser!" -ForegroundColor Yellow
+
