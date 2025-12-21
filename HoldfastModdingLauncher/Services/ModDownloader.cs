@@ -149,7 +149,7 @@ namespace HoldfastModdingLauncher.Services
                 Timeout = TimeSpan.FromSeconds(30)
             };
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "HoldfastModdingLauncher");
-            _httpClient.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3+json");
+            // Note: Don't set Accept header here - we need different headers for raw content vs API
         }
 
         /// <summary>
@@ -162,45 +162,79 @@ namespace HoldfastModdingLauncher.Services
         }
 
         /// <summary>
-        /// Fetches the mod registry from GitHub.
+        /// Fetches the mod registry from GitHub with retry logic.
         /// </summary>
         public async Task<ModRegistry?> FetchRegistryAsync(bool forceRefresh = false)
         {
             // Use cache if available and not expired
             if (!forceRefresh && _cachedRegistry != null && DateTime.Now - _lastRegistryFetch < _cacheExpiry)
             {
+                Logger.LogInfo("Using cached registry");
                 return _cachedRegistry;
             }
 
-            try
+            string registryUrl = GetRegistryUrl();
+            int maxRetries = 3;
+            
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
-                string registryUrl = GetRegistryUrl();
-                Logger.LogInfo($"Fetching mod registry from: {registryUrl}");
-
-                string json = await _httpClient.GetStringAsync(registryUrl);
-                var registry = JsonSerializer.Deserialize<ModRegistry>(json, new JsonSerializerOptions
+                try
                 {
-                    PropertyNameCaseInsensitive = true
-                });
+                    Logger.LogInfo($"Fetching mod registry from: {registryUrl} (attempt {attempt}/{maxRetries})");
 
-                if (registry != null)
-                {
-                    // Check installed status for each mod
-                    await UpdateInstalledStatusAsync(registry);
+                    // Create a new HttpClient for each request to avoid issues
+                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+                    client.DefaultRequestHeaders.Add("User-Agent", "HoldfastModdingLauncher");
                     
-                    _cachedRegistry = registry;
-                    _lastRegistryFetch = DateTime.Now;
+                    string json = await client.GetStringAsync(registryUrl);
+                    Logger.LogInfo($"Received {json.Length} bytes from registry");
                     
-                    Logger.LogInfo($"Loaded {registry.Mods.Count} mod(s) from registry");
+                    var registry = JsonSerializer.Deserialize<ModRegistry>(json, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                    if (registry != null && registry.Mods != null)
+                    {
+                        Logger.LogInfo($"Parsed registry: {registry.Mods.Count} mod(s) found");
+                        
+                        // Check installed status for each mod
+                        await UpdateInstalledStatusAsync(registry);
+                        
+                        _cachedRegistry = registry;
+                        _lastRegistryFetch = DateTime.Now;
+                        
+                        Logger.LogInfo($"Loaded {registry.Mods.Count} mod(s) from registry successfully");
+                        return registry;
+                    }
+                    else
+                    {
+                        Logger.LogWarning("Registry parsed but Mods list is null or empty");
+                    }
                 }
+                catch (TaskCanceledException ex) when (ex.CancellationToken.IsCancellationRequested == false)
+                {
+                    // This is a timeout, not a cancellation
+                    Logger.LogWarning($"Registry fetch timed out (attempt {attempt}/{maxRetries}): {ex.Message}");
+                    if (attempt == maxRetries)
+                    {
+                        Logger.LogError($"Failed to fetch mod registry after {maxRetries} attempts (timeout)");
+                        return null;
+                    }
+                    await Task.Delay(1000); // Wait before retry
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError($"Failed to fetch mod registry (attempt {attempt}/{maxRetries}): {ex.Message}");
+                    if (attempt == maxRetries)
+                    {
+                        return null;
+                    }
+                    await Task.Delay(1000); // Wait before retry
+                }
+            }
 
-                return registry;
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError($"Failed to fetch mod registry: {ex.Message}");
-                return null;
-            }
+            return null;
         }
 
         /// <summary>
