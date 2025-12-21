@@ -1,37 +1,47 @@
-{
-    "schemaVersion": "1.1",
-    "lastUpdated": "2024-12-21T00:00:00Z",
-    "registryUrl": "https://raw.githubusercontent.com/Xarkanoth/HoldfastModdingLauncher/main/mod-registry.json",
-    "modsBaseUrl": "https://raw.githubusercontent.com/Xarkanoth/HoldfastMods/main",
-    "releasesBaseUrl": "https://github.com/Xarkanoth/HoldfastMods/releases/download",
-    "mods": [
-        {
-            "id": "AdvancedAdminUI",
-            "name": "Advanced Admin UI",
-            "description": "A comprehensive client-side admin tool suite for Holdfast: Nations at War. Features include Cavalry Visualization, Rambo Indicator, AFK Indicator, Minimap, and Admin UI.",
-            "author": "Xarkanoth",
-            "version": "1.0.26",
-            "minLauncherVersion": "1.0.80",
-            "requirements": "Requires RC login to use.",
-            "category": "Admin Tools",
-            "tags": ["admin", "minimap", "visualization", "cavalry", "afk"],
-            "repositoryUrl": "https://github.com/Xarkanoth/HoldfastMods",
-            "infoUrl": "https://raw.githubusercontent.com/Xarkanoth/HoldfastMods/main/AdvancedAdminUI/mod-info.json",
-            "releaseUrl": "https://api.github.com/repos/Xarkanoth/HoldfastMods/releases/tags/AdvancedAdminUI-v1.0.26",
-            "downloadUrl": "https://github.com/Xarkanoth/HoldfastMods/releases/download/AdvancedAdminUI-v1.0.26/AdvancedAdminUI.dll",
-            "dllName": "AdvancedAdminUI.dll",
-            "iconUrl": "",
-            "screenshots": [],
-            "changelog": "See GitHub releases for full changelog.",
-            "dependencies": [],
-            "isEnabled": true
-        }
-    ],
-    "categories": [
-        "Admin Tools",
-        "Gameplay",
-        "Visual",
-        "Audio",
-        "Utilities"
-    ]
+﻿{
+    "schemaVersion":  "1.1",
+    "lastUpdated":  "2025-12-21T19:28:56Z",
+    "registryUrl":  "https://raw.githubusercontent.com/Xarkanoth/HoldfastModdingLauncher/main/mod-registry.json",
+    "modsBaseUrl":  "https://raw.githubusercontent.com/Xarkanoth/HoldfastMods/main",
+    "releasesBaseUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download",
+    "mods":  [
+                 {
+                     "id":  "AdvancedAdminUI",
+                     "name":  "Advanced Admin UI",
+                     "description":  "A comprehensive client-side admin tool suite for Holdfast: Nations at War. Features include Cavalry Visualization, Rambo Indicator, AFK Indicator, Minimap, and Admin UI.",
+                     "author":  "Xarkanoth",
+                     "version":  "1.0.24",
+                     "minLauncherVersion":  "1.0.80",
+                     "requirements":  "Requires RC login to use.",
+                     "category":  "Admin Tools",
+                     "tags":  [
+                                  "admin",
+                                  "minimap",
+                                  "visualization",
+                                  "cavalry",
+                                  "afk"
+                              ],
+                     "repositoryUrl":  "https://github.com/Xarkanoth/HoldfastMods",
+                     "infoUrl":  "https://raw.githubusercontent.com/Xarkanoth/HoldfastMods/main/AdvancedAdminUI/mod-info.json",
+                     "releaseUrl":  "https://api.github.com/repos/Xarkanoth/HoldfastMods/releases/tags/AdvancedAdminUI-v1.0.24",
+                     "downloadUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download/AdvancedAdminUI-v1.0.24/AdvancedAdminUI.dll",
+                     "dllName":  "AdvancedAdminUI.dll",
+                     "iconUrl":  "",
+                     "screenshots":  [
+
+                                     ],
+                     "changelog":  "See GitHub releases for full changelog.",
+                     "dependencies":  [
+
+                                      ],
+                     "isEnabled":  true
+                 }
+             ],
+    "categories":  [
+                       "Admin Tools",
+                       "Gameplay",
+                       "Visual",
+                       "Audio",
+                       "Utilities"
+                   ]
 }
