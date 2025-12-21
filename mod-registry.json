@@ -1,6 +1,6 @@
 ﻿{
     "schemaVersion":  "1.1",
-    "lastUpdated":  "2025-12-21T19:28:56Z",
+    "lastUpdated":  "2025-12-21T22:42:46Z",
     "registryUrl":  "https://raw.githubusercontent.com/Xarkanoth/HoldfastModdingLauncher/main/mod-registry.json",
     "modsBaseUrl":  "https://raw.githubusercontent.com/Xarkanoth/HoldfastMods/main",
     "releasesBaseUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download",
@@ -41,8 +41,8 @@
                      "name":  "Custom Splash Screen",
                      "description":  "Replace the Holdfast splash screen with custom videos! Select from pre-defined splash videos or use your own custom video file. Press F8 in-game to configure.",
                      "author":  "Xarkanoth",
-                     "version":  "1.0.2",
-                     "minLauncherVersion":  "1.0.130",
+                     "version":  "1.0.6",
+                     "minLauncherVersion":  "1.0.142",
                      "requirements":  "",
                      "category":  "Visual",
                      "tags":  [
@@ -53,13 +53,17 @@
                               ],
                      "repositoryUrl":  "https://github.com/Xarkanoth/HoldfastMods",
                      "infoUrl":  "",
-                     "releaseUrl":  "https://api.github.com/repos/Xarkanoth/HoldfastMods/releases/tags/CustomSplashScreen-v1.0.2",
-                     "downloadUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download/CustomSplashScreen-v1.0.2/CustomSplashScreen.dll",
+                     "releaseUrl":  "https://api.github.com/repos/Xarkanoth/HoldfastMods/releases/tags/CustomSplashScreen-v1.0.6",
+                     "downloadUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download/CustomSplashScreen-v1.0.6/CustomSplashScreen.dll",
                      "dllName":  "CustomSplashScreen.dll",
                      "iconUrl":  "",
-                     "screenshots":  [],
+                     "screenshots":  [
+
+                                     ],
                      "changelog":  "v1.0.0 - Initial release with settings UI and video selection.",
-                     "dependencies":  [],
+                     "dependencies":  [
+
+                                      ],
                      "isEnabled":  true
                  }
              ],
