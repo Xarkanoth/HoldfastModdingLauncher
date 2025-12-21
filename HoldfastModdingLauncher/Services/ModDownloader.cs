@@ -138,8 +138,9 @@ namespace HoldfastModdingLauncher.Services
         private DateTime _lastRegistryFetch = DateTime.MinValue;
         private readonly TimeSpan _cacheExpiry = TimeSpan.FromMinutes(5);
 
-        // Default registry URL - can be overridden in settings
-        private const string DEFAULT_REGISTRY_URL = "https://raw.githubusercontent.com/Xarkanoth/HoldfastModdingLauncher/main/mod-registry.json";
+        // Default registry URL - uses GitHub API (more reliable than raw.githubusercontent.com)
+        // With Accept header "application/vnd.github.v3.raw" it returns raw file content
+        private const string DEFAULT_REGISTRY_URL = "https://api.github.com/repos/Xarkanoth/HoldfastModdingLauncher/contents/mod-registry.json";
 
         public ModDownloader(ModManager modManager)
         {
@@ -183,8 +184,10 @@ namespace HoldfastModdingLauncher.Services
                     Logger.LogInfo($"Fetching mod registry from: {registryUrl} (attempt {attempt}/{maxRetries})");
 
                     // Create a new HttpClient for each request to avoid issues
-                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
                     client.DefaultRequestHeaders.Add("User-Agent", "HoldfastModdingLauncher");
+                    // Use GitHub API raw content header for faster/more reliable access
+                    client.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3.raw");
                     
                     string json = await client.GetStringAsync(registryUrl);
                     Logger.LogInfo($"Received {json.Length} bytes from registry");

@@ -66,6 +66,9 @@ namespace HoldfastModdingLauncher
             InitializeComponent();
             InitializeUI();
             
+            // Check first-run disclaimer
+            CheckFirstRunDisclaimer();
+            
             // Perform initial setup check
             CheckSetup();
             
@@ -406,14 +409,30 @@ namespace HoldfastModdingLauncher
             _playButton.Click += PlayButton_Click;
             contentPanel.Controls.Add(_playButton);
 
+            // Disclaimer label at bottom
+            var disclaimerLabel = new Label
+            {
+                Text = "⚠ UNOFFICIAL TOOL - Not affiliated with Anvil Game Studios",
+                Font = new Font("Segoe UI", 8F),
+                ForeColor = Color.FromArgb(255, 180, 100),
+                AutoSize = true,
+                Location = new Point(25, 678),
+                BackColor = Color.Transparent,
+                Cursor = Cursors.Hand
+            };
+            disclaimerLabel.Click += (s, e) => ShowDisclaimer();
+            var disclaimerTooltip = new ToolTip();
+            disclaimerTooltip.SetToolTip(disclaimerLabel, "Click for full disclaimer");
+            contentPanel.Controls.Add(disclaimerLabel);
+            
             // Credit label at bottom - Moved down
             var creditLabel = new Label
             {
-                Text = "Built and maintained by Xarkanoth  •  Discord.gg/csg",
-                Font = new Font("Segoe UI", 9F, FontStyle.Italic),
+                Text = "Built by Xarkanoth  •  Discord.gg/csg",
+                Font = new Font("Segoe UI", 8F, FontStyle.Italic),
                 ForeColor = TextGray,
                 AutoSize = true,
-                Location = new Point(25, 690),
+                Location = new Point(25, 695),
                 BackColor = Color.Transparent
             };
             contentPanel.Controls.Add(creditLabel);
@@ -667,6 +686,112 @@ namespace HoldfastModdingLauncher
                 CheckSetup();
             }
         }
+        
+        private void UninstallMod(string fileName, string fullPath)
+        {
+            var result = MessageBox.Show(
+                $"Are you sure you want to uninstall '{fileName}'?\n\nThis will permanently delete the mod file.",
+                "Confirm Uninstall",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+            
+            if (result != DialogResult.Yes)
+                return;
+            
+            try
+            {
+                // Delete the DLL file
+                if (File.Exists(fullPath))
+                {
+                    File.Delete(fullPath);
+                    Logger.LogInfo($"Uninstalled mod: {fileName}");
+                }
+                
+                // Also delete the manifest JSON if it exists
+                string jsonPath = Path.ChangeExtension(fullPath, ".json");
+                if (File.Exists(jsonPath))
+                {
+                    File.Delete(jsonPath);
+                    Logger.LogInfo($"Deleted manifest: {Path.GetFileName(jsonPath)}");
+                }
+                
+                ShowCustomMessage($"Successfully uninstalled '{fileName}'.", "Mod Uninstalled", MessageBoxIcon.Information);
+                
+                // Refresh the mod list
+                LoadMods();
+                CheckSetup();
+                
+                // Clear selection
+                _selectedModFileName = null;
+                _detailsTitleLabel.Text = "Select a mod to view details";
+                _detailsTitleLabel.ForeColor = TextGray;
+                _detailsDescLabel.Text = "";
+                _detailsReqLabel.Text = "";
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Failed to uninstall mod {fileName}: {ex.Message}");
+                ShowCustomMessage($"Failed to uninstall mod: {ex.Message}", "Error", MessageBoxIcon.Error);
+            }
+        }
+        
+        private void ShowDisclaimer()
+        {
+            string disclaimer = @"⚠️ IMPORTANT DISCLAIMER
+
+This is an UNOFFICIAL modding tool. It is NOT developed, endorsed, or supported by Anvil Game Studios or the Holdfast development team. They have no control over this project.
+
+FAIR PLAY NOTICE:
+• This tool is intended for legitimate modding purposes only
+• DO NOT use any mods to cheat, exploit, or gain unfair advantages
+• DO NOT use mods to harass, grief, or abuse other players
+• Respect server rules and the game's Terms of Service
+• Misuse of mods may result in bans from game servers
+
+By using this tool, you acknowledge that you are solely responsible for how you use it.
+
+Holdfast: Nations At War is a trademark of Anvil Game Studios.
+This project is not affiliated with Anvil Game Studios.";
+
+            ShowCustomMessage(disclaimer, "Disclaimer", MessageBoxIcon.Warning);
+        }
+        
+        private void CheckFirstRunDisclaimer()
+        {
+            string disclaimerAcceptedFile = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "HoldfastModding", "disclaimer_accepted.txt");
+            
+            if (!File.Exists(disclaimerAcceptedFile))
+            {
+                var result = MessageBox.Show(
+                    "⚠️ IMPORTANT DISCLAIMER\n\n" +
+                    "This is an UNOFFICIAL modding tool. It is NOT developed, endorsed, or supported by Anvil Game Studios.\n\n" +
+                    "FAIR PLAY NOTICE:\n" +
+                    "• DO NOT use mods to cheat or gain unfair advantages\n" +
+                    "• DO NOT use mods to harass or abuse other players\n" +
+                    "• Respect server rules and Terms of Service\n\n" +
+                    "By clicking 'Yes', you acknowledge that you are solely responsible for how you use this tool.\n\n" +
+                    "Do you accept these terms?",
+                    "Disclaimer - Holdfast Modding Launcher",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+                
+                if (result == DialogResult.Yes)
+                {
+                    // Create the folder and file to mark disclaimer as accepted
+                    string folder = Path.GetDirectoryName(disclaimerAcceptedFile);
+                    if (!Directory.Exists(folder))
+                        Directory.CreateDirectory(folder);
+                    File.WriteAllText(disclaimerAcceptedFile, DateTime.Now.ToString());
+                }
+                else
+                {
+                    // User declined - close the application
+                    Application.Exit();
+                }
+            }
+        }
 
         private void UpdateModDetails(string modFileName)
         {
@@ -827,6 +952,19 @@ namespace HoldfastModdingLauncher
                         Cursor = Cursors.Hand
                     };
                     modRow.Click += (s, e) => UpdateModDetails(mod.FileName);
+                    
+                    // Add right-click context menu for uninstall
+                    var contextMenu = new ContextMenuStrip();
+                    contextMenu.BackColor = DarkPanel;
+                    contextMenu.ForeColor = TextLight;
+                    var uninstallItem = new ToolStripMenuItem("🗑 Uninstall Mod");
+                    uninstallItem.Click += (s, e) => UninstallMod(mod.FileName, mod.FullPath);
+                    contextMenu.Items.Add(uninstallItem);
+                    var openFolderItem = new ToolStripMenuItem("📁 Open Mods Folder");
+                    openFolderItem.Click += (s, e) => System.Diagnostics.Process.Start("explorer.exe", _modManager.GetModsFolderPath());
+                    contextMenu.Items.Add(openFolderItem);
+                    modRow.ContextMenuStrip = contextMenu;
+                    
                     _modsPanel.Controls.Add(modRow);
 
                     var checkBox = new CheckBox
@@ -843,6 +981,7 @@ namespace HoldfastModdingLauncher
                     };
                     checkBox.CheckedChanged += ModCheckBox_CheckedChanged;
                     checkBox.Click += (s, e) => UpdateModDetails(mod.FileName);
+                    checkBox.ContextMenuStrip = contextMenu;
                     modRow.Controls.Add(checkBox);
                     _modCheckBoxes.Add(checkBox);
 
