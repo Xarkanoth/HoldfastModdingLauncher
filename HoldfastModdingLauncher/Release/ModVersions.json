@@ -1,0 +1,31 @@
+﻿{
+    "Mods":  {
+                 "LauncherCoreMod":  {
+                                         "Version":  "1.0.0",
+                                         "DisplayName":  "Launcher Core",
+                                         "Description":  "Core functionality for the Holdfast Modding Launcher. Includes server browser filtering. Cannot be disabled.",
+                                         "Requirements":  "",
+                                         "DllName":  "LauncherCoreMod.dll",
+                                         "ProjectFolder":  "LauncherCoreMod"
+                                     },
+                 "AdvancedAdminUI":  {
+                                         "Version":  "1.0.28",
+                                         "DisplayName":  "Advanced Admin UI",
+                                         "Description":  "A comprehensive client-side admin tool suite for Holdfast: Nations at War. Features include Cavalry Visualization, Rambo Indicator, AFK Indicator, Minimap, and Admin UI.",
+                                         "Requirements":  "Requires RC login to use.",
+                                         "DllName":  "AdvancedAdminUI.dll",
+                                         "ProjectFolder":  "AdvancedAdminUI"
+                                     },
+                 "CustomSplashScreen":  {
+                                            "Version":  "1.0.10",
+                                            "DisplayName":  "Custom Splash Screen",
+                                            "Description":  "Replace the Holdfast splash screen with custom videos! Configure via the launcher settings.",
+                                            "Requirements":  "",
+                                            "DllName":  "CustomSplashScreen.dll",
+                                            "ProjectFolder":  "CustomSplashScreen"
+                                        }
+             },
+    "Launcher":  {
+                     "Version":  "1.0.150"
+                 }
+}
