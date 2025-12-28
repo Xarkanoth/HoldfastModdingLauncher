@@ -412,8 +412,6 @@ namespace AdvancedAdminUI.Utils
         {
             try
             {
-                // Always log spawns - this is critical for debugging registration issues
-                AdvancedAdminUIMod.Log.LogInfo($"[HoldfastScriptMod] OnPlayerSpawned: PlayerId={playerId}, Faction={playerFaction}, Class={playerClass}");
                 PlayerEventManager.OnPlayerSpawned(playerId, spawnSectionId, playerFaction, playerClass, uniformId, playerObject);
             }
             catch (Exception ex)
