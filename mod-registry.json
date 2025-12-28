@@ -1,6 +1,6 @@
 ﻿{
     "schemaVersion":  "1.1",
-    "lastUpdated":  "2025-12-28T19:31:53Z",
+    "lastUpdated":  "2025-12-28T19:32:46Z",
     "registryUrl":  "https://raw.githubusercontent.com/Xarkanoth/HoldfastModdingLauncher/main/mod-registry.json",
     "modsBaseUrl":  "https://raw.githubusercontent.com/Xarkanoth/HoldfastMods/main",
     "releasesBaseUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download",
@@ -71,7 +71,7 @@
                      "name":  "Custom Crosshairs",
                      "description":  "Replace weapon crosshairs with custom images! Configure via the launcher settings.",
                      "author":  "Xarkanoth",
-                     "version":  "1.0.15",
+                     "version":  "1.0.17",
                      "minLauncherVersion":  "1.0.80",
                      "requirements":  "",
                      "category":  "Visual",
@@ -83,8 +83,8 @@
                               ],
                      "repositoryUrl":  "https://github.com/Xarkanoth/HoldfastMods",
                      "infoUrl":  "",
-                     "releaseUrl":  "https://api.github.com/repos/Xarkanoth/HoldfastMods/releases/tags/CustomCrosshairs-v1.0.15",
-                     "downloadUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download/CustomCrosshairs-v1.0.15/CustomCrosshairs.dll",
+                     "releaseUrl":  "https://api.github.com/repos/Xarkanoth/HoldfastMods/releases/tags/CustomCrosshairs-v1.0.17",
+                     "downloadUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download/CustomCrosshairs-v1.0.17/CustomCrosshairs.dll",
                      "dllName":  "CustomCrosshairs.dll",
                      "iconUrl":  "",
                      "screenshots":  [
