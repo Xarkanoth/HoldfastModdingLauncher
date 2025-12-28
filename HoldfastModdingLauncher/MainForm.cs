@@ -56,6 +56,10 @@ namespace HoldfastModdingLauncher
         private const string PASSWORD_HASH = "5af29f81b2678084c9ffb40fcfeb0ee8287f4f5a16fb73229aca874503097728";
         private const string HASH_SALT = "HF_MODDING_2024_XARK";
         private const string LOGIN_TOKEN_FILE = "master_login.token";
+        
+        // LauncherCoreMod integrity protection
+        private const string LAUNCHER_CORE_MOD_NAME = "LauncherCoreMod.dll";
+        private const string LAUNCHER_CORE_MOD_EXPECTED_HASH = "8603d62faeadea94a12c0feb8a5e29360467febff936e8280938f97d789cec53";
 
         // Dark theme colors (matching InstallerForm)
         private readonly Color DarkBg = Color.FromArgb(18, 18, 18);
@@ -78,6 +82,19 @@ namespace HoldfastModdingLauncher
             
             InitializeComponent();
             InitializeUI();
+            
+            // CRITICAL: Verify LauncherCoreMod before anything else
+            if (!VerifyLauncherCoreMod())
+            {
+                // Launcher cannot function without LauncherCoreMod
+                ShowCriticalError("Launcher Core Mod Missing or Invalid", 
+                    "The LauncherCoreMod.dll file is missing or has been modified.\n\n" +
+                    "The launcher cannot function without this core mod.\n\n" +
+                    "Please restore the original LauncherCoreMod.dll file to continue.\n\n" +
+                    "If you deleted it, you can reinstall the launcher or download it from the mod browser.");
+                Application.Exit();
+                return;
+            }
             
             // Check first-run disclaimer
             CheckFirstRunDisclaimer();
@@ -946,6 +963,19 @@ namespace HoldfastModdingLauncher
         
         private void UninstallMod(string fileName, string fullPath)
         {
+            // Prevent uninstalling core mods
+            if (_modManager.IsCoreMod(fileName))
+            {
+                ShowCustomMessage(
+                    "Cannot uninstall core mod.\n\n" +
+                    "LauncherCoreMod.dll is a core component required for the launcher to function.\n" +
+                    "It cannot be disabled or uninstalled.",
+                    "Core Mod Protection",
+                    MessageBoxIcon.Warning
+                );
+                return;
+            }
+            
             // Use custom uninstall dialog
             bool success = ModUninstallDialog.ShowUninstallDialog(fileName, fullPath);
             
@@ -1329,9 +1359,21 @@ namespace HoldfastModdingLauncher
                     var contextMenu = new ContextMenuStrip();
                     contextMenu.BackColor = DarkPanel;
                     contextMenu.ForeColor = TextLight;
-                    var uninstallItem = new ToolStripMenuItem("🗑 Uninstall Mod");
-                    uninstallItem.Click += (s, e) => UninstallMod(mod.FileName, mod.FullPath);
-                    contextMenu.Items.Add(uninstallItem);
+                    
+                    // Core mods cannot be uninstalled
+                    if (!_modManager.IsCoreMod(mod.FileName))
+                    {
+                        var uninstallItem = new ToolStripMenuItem("🗑 Uninstall Mod");
+                        uninstallItem.Click += (s, e) => UninstallMod(mod.FileName, mod.FullPath);
+                        contextMenu.Items.Add(uninstallItem);
+                    }
+                    else
+                    {
+                        var uninstallItem = new ToolStripMenuItem("🔒 Core Mod (Cannot Uninstall)");
+                        uninstallItem.Enabled = false;
+                        contextMenu.Items.Add(uninstallItem);
+                    }
+                    
                     var openFolderItem = new ToolStripMenuItem("📁 Open Mods Folder");
                     openFolderItem.Click += (s, e) => System.Diagnostics.Process.Start("explorer.exe", _modManager.GetModsFolderPath());
                     contextMenu.Items.Add(openFolderItem);
@@ -1355,7 +1397,18 @@ namespace HoldfastModdingLauncher
                         BackColor = Color.Transparent,
                         Cursor = Cursors.Hand
                     };
-                    checkBox.CheckedChanged += ModCheckBox_CheckedChanged;
+                    
+                    // Core mods cannot be disabled
+                    if (_modManager.IsCoreMod(mod.FileName))
+                    {
+                        checkBox.Enabled = false;
+                        checkBox.Checked = true; // Always checked for core mods
+                    }
+                    else
+                    {
+                        checkBox.CheckedChanged += ModCheckBox_CheckedChanged;
+                    }
+                    
                     checkBox.ContextMenuStrip = contextMenu;
                     modRow.Controls.Add(checkBox);
                     _modCheckBoxes.Add(checkBox);
@@ -1655,6 +1708,13 @@ namespace HoldfastModdingLauncher
         {
             if (sender is CheckBox checkBox && checkBox.Tag is string fileName)
             {
+                // Double-check: prevent disabling core mods even if checkbox is somehow unchecked
+                if (_modManager.IsCoreMod(fileName) && !checkBox.Checked)
+                {
+                    checkBox.Checked = true;
+                    return;
+                }
+                
                 _modManager.SetModEnabled(fileName, checkBox.Checked);
                 UpdateModCountStatus();
             }
@@ -1854,6 +1914,126 @@ namespace HoldfastModdingLauncher
                 _statusLabel.Text = "✗ Launch failed!";
                 _statusLabel.ForeColor = Color.Red;
                 _playButton.Enabled = true;
+            }
+        }
+        
+        /// <summary>
+        /// Verifies that LauncherCoreMod.dll exists and has the correct hash.
+        /// Returns false if file is missing or hash doesn't match (indicating tampering).
+        /// </summary>
+        private bool VerifyLauncherCoreMod()
+        {
+            try
+            {
+                string modsFolder = _modManager.GetModsFolderPath();
+                string coreModPath = Path.Combine(modsFolder, LAUNCHER_CORE_MOD_NAME);
+                
+                // Check if file exists
+                if (!File.Exists(coreModPath))
+                {
+                    Logger.LogError($"LauncherCoreMod.dll not found at: {coreModPath}");
+                    return false;
+                }
+                
+                // Calculate hash of the file
+                byte[] fileBytes = File.ReadAllBytes(coreModPath);
+                using (var sha256 = SHA256.Create())
+                {
+                    byte[] hashBytes = sha256.ComputeHash(fileBytes);
+                    string actualHash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+                    
+                    // Compare with expected hash
+                    if (!actualHash.Equals(LAUNCHER_CORE_MOD_EXPECTED_HASH, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Logger.LogError($"LauncherCoreMod.dll hash mismatch! Expected: {LAUNCHER_CORE_MOD_EXPECTED_HASH}, Got: {actualHash}");
+                        Logger.LogError("File has been modified or replaced with an unauthorized version.");
+                        return false;
+                    }
+                }
+                
+                Logger.LogInfo("LauncherCoreMod.dll verified successfully");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Failed to verify LauncherCoreMod: {ex.Message}");
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Shows a critical error dialog that prevents the launcher from functioning.
+        /// </summary>
+        private void ShowCriticalError(string title, string message)
+        {
+            try
+            {
+                using (var errorForm = new Form())
+                {
+                    errorForm.Text = title;
+                    errorForm.Size = new Size(500, 250);
+                    errorForm.FormBorderStyle = FormBorderStyle.FixedDialog;
+                    errorForm.StartPosition = FormStartPosition.CenterScreen;
+                    errorForm.BackColor = DarkBg;
+                    errorForm.ForeColor = TextLight;
+                    errorForm.MaximizeBox = false;
+                    errorForm.MinimizeBox = false;
+                    errorForm.ControlBox = true;
+                    
+                    // Title bar
+                    var titleBar = new Panel
+                    {
+                        BackColor = Color.FromArgb(100, 0, 0),
+                        Location = new Point(0, 0),
+                        Size = new Size(500, 50)
+                    };
+                    var titleLabel = new Label
+                    {
+                        Text = $"✗ {title}",
+                        Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                        ForeColor = Color.Red,
+                        Location = new Point(15, 12),
+                        AutoSize = true,
+                        BackColor = Color.Transparent
+                    };
+                    titleBar.Controls.Add(titleLabel);
+                    errorForm.Controls.Add(titleBar);
+                    
+                    // Message
+                    var messageLabel = new Label
+                    {
+                        Text = message,
+                        Font = new Font("Segoe UI", 10F),
+                        ForeColor = TextLight,
+                        Location = new Point(20, 70),
+                        Size = new Size(460, 120),
+                        BackColor = Color.Transparent
+                    };
+                    errorForm.Controls.Add(messageLabel);
+                    
+                    // OK button
+                    var okButton = new Button
+                    {
+                        Text = "OK",
+                        Size = new Size(100, 35),
+                        Location = new Point(200, 200),
+                        BackColor = Color.FromArgb(60, 60, 70),
+                        ForeColor = TextLight,
+                        FlatStyle = FlatStyle.Flat,
+                        DialogResult = DialogResult.OK
+                    };
+                    okButton.FlatAppearance.BorderColor = AccentCyan;
+                    okButton.FlatAppearance.BorderSize = 1;
+                    errorForm.Controls.Add(okButton);
+                    errorForm.AcceptButton = okButton;
+                    
+                    errorForm.ShowDialog();
+                }
+            }
+            catch
+            {
+                // Fallback to standard message box if custom form fails
+                MessageBox.Show(message, title, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
         
