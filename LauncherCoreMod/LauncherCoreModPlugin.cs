@@ -8,6 +8,7 @@ using System.Text;
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
+using HoldfastSharedMethods;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,29 +16,38 @@ namespace LauncherCoreMod
 {
     /// <summary>
     /// Core mod for the Holdfast Modding Launcher
-    /// Provides essential features for all launcher users (not just admins)
+    /// Provides essential features for all launcher users:
     /// - Server browser filtering (hides official servers for non-master users)
+    /// - Game event dispatching via IHoldfastSharedMethods (for other mods to subscribe to)
+    /// - Master login verification
     /// </summary>
-    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.0")]
+    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.1")]
     public class LauncherCoreModPlugin : BaseUnityPlugin
     {
         public static ManualLogSource Log { get; private set; }
+        public static LauncherCoreModPlugin Instance { get; private set; }
         
         private ServerBrowserFilter _serverBrowserFilter;
+        private GameEventDispatcher _eventDispatcher;
         
         void Awake()
         {
+            Instance = this;
             Log = Logger;
             Log.LogInfo("Launcher Core Mod loaded!");
             
             // Initialize server browser filter
             _serverBrowserFilter = new ServerBrowserFilter();
             _serverBrowserFilter.Initialize();
+            
+            // Initialize game event dispatcher
+            _eventDispatcher = new GameEventDispatcher();
         }
         
         void Update()
         {
             _serverBrowserFilter?.OnUpdate();
+            _eventDispatcher?.OnUpdate();
         }
         
         void OnApplicationQuit()
@@ -46,6 +56,524 @@ namespace LauncherCoreMod
         }
     }
     
+    #region Game Event System
+    
+    /// <summary>
+    /// Static class that exposes game events for other mods to subscribe to.
+    /// This is the central hub for all Holdfast game events.
+    /// </summary>
+    public static class GameEvents
+    {
+        // ==========================================
+        // CONNECTION EVENTS
+        // ==========================================
+        
+        /// <summary>Fired when the client connects to a server. Args: steamId</summary>
+        public static event Action<ulong> OnConnectedToServer;
+        
+        /// <summary>Fired when the client disconnects from a server</summary>
+        public static event Action OnDisconnectedFromServer;
+        
+        // ==========================================
+        // PLAYER EVENTS
+        // ==========================================
+        
+        /// <summary>Fired when any player joins. Args: playerId, steamId, name, regimentTag, isBot</summary>
+        public static event Action<int, ulong, string, string, bool> OnPlayerJoined;
+        
+        /// <summary>Fired when any player leaves. Args: playerId</summary>
+        public static event Action<int> OnPlayerLeft;
+        
+        /// <summary>Fired when any player spawns. Args: playerId, spawnSectionId, faction, playerClass, uniformId, playerObject</summary>
+        public static event Action<int, int, FactionCountry, PlayerClass, int, GameObject> OnPlayerSpawned;
+        
+        /// <summary>Fired when local player spawns. Args: playerId, faction, playerClass</summary>
+        public static event Action<int, FactionCountry, PlayerClass> OnLocalPlayerSpawned;
+        
+        /// <summary>Fired when player position update received. Args: playerId, position, rotation</summary>
+        public static event Action<int, Vector3, Vector3> OnPlayerPacket;
+        
+        /// <summary>Fired when a player kills another. Args: killerPlayerId, victimPlayerId, reason, details</summary>
+        public static event Action<int, int, EntityHealthChangedReason, string> OnPlayerKilledPlayer;
+        
+        // ==========================================
+        // ROUND EVENTS
+        // ==========================================
+        
+        /// <summary>Fired when round details are received. Args: roundId, serverName, mapName, attackingFaction, defendingFaction, gameplayMode, gameType</summary>
+        public static event Action<int, string, string, FactionCountry, FactionCountry, GameplayMode, GameType> OnRoundDetails;
+        
+        /// <summary>Fired when round ends. Args: winningFaction, reason</summary>
+        public static event Action<FactionCountry, FactionRoundWinnerReason> OnRoundEndFactionWinner;
+        
+        // ==========================================
+        // ADMIN EVENTS
+        // ==========================================
+        
+        /// <summary>Fired when RC login occurs. Args: playerId, isLoggedIn</summary>
+        public static event Action<int, bool> OnRCLogin;
+        
+        /// <summary>Fired when a player connects (IHoldfastSharedMethods3). Args: playerId, isAutoAdmin, backendId</summary>
+        public static event Action<int, bool, string> OnPlayerConnected;
+        
+        // ==========================================
+        // INTERNAL DISPATCH METHODS (called by GameEventDispatcher)
+        // ==========================================
+        
+        internal static void RaiseConnectedToServer(ulong steamId) => OnConnectedToServer?.Invoke(steamId);
+        internal static void RaiseDisconnectedFromServer() => OnDisconnectedFromServer?.Invoke();
+        internal static void RaisePlayerJoined(int playerId, ulong steamId, string name, string regimentTag, bool isBot) 
+            => OnPlayerJoined?.Invoke(playerId, steamId, name, regimentTag, isBot);
+        internal static void RaisePlayerLeft(int playerId) => OnPlayerLeft?.Invoke(playerId);
+        internal static void RaisePlayerSpawned(int playerId, int spawnSectionId, FactionCountry faction, PlayerClass playerClass, int uniformId, GameObject playerObject)
+            => OnPlayerSpawned?.Invoke(playerId, spawnSectionId, faction, playerClass, uniformId, playerObject);
+        internal static void RaiseLocalPlayerSpawned(int playerId, FactionCountry faction, PlayerClass playerClass)
+            => OnLocalPlayerSpawned?.Invoke(playerId, faction, playerClass);
+        internal static void RaisePlayerPacket(int playerId, Vector3 position, Vector3 rotation)
+            => OnPlayerPacket?.Invoke(playerId, position, rotation);
+        internal static void RaisePlayerKilledPlayer(int killerPlayerId, int victimPlayerId, EntityHealthChangedReason reason, string details)
+            => OnPlayerKilledPlayer?.Invoke(killerPlayerId, victimPlayerId, reason, details);
+        internal static void RaiseRoundDetails(int roundId, string serverName, string mapName, FactionCountry attackingFaction, FactionCountry defendingFaction, GameplayMode gameplayMode, GameType gameType)
+            => OnRoundDetails?.Invoke(roundId, serverName, mapName, attackingFaction, defendingFaction, gameplayMode, gameType);
+        internal static void RaiseRoundEndFactionWinner(FactionCountry faction, FactionRoundWinnerReason reason)
+            => OnRoundEndFactionWinner?.Invoke(faction, reason);
+        internal static void RaiseRCLogin(int playerId, bool isLoggedIn) => OnRCLogin?.Invoke(playerId, isLoggedIn);
+        internal static void RaisePlayerConnected(int playerId, bool isAutoAdmin, string backendId)
+            => OnPlayerConnected?.Invoke(playerId, isAutoAdmin, backendId);
+    }
+    
+    /// <summary>
+    /// IHoldfastSharedMethods3 interface - defined here since it may not be in referenced DLLs
+    /// The game calls these methods via reflection
+    /// </summary>
+    public interface IHoldfastSharedMethods3
+    {
+        void OnPlayerPacket(int playerId, Vector3 position, Vector3 rotation);
+        void OnStartSpectate(int playerId, int spectatedPlayerId);
+        void OnStopSpectate(int playerId, int spectatedPlayerId);
+        void OnStartFreeflight(int playerId);
+        void OnStopFreeflight(int playerId);
+        void OnMeleeArenaRoundEndFactionWinner(int roundId, bool attackers);
+        void OnPlayerConnected(int playerId, bool isAutoAdmin, string backendId);
+        void OnPlayerDisconnected(int playerId);
+    }
+    
+    /// <summary>
+    /// Handles registration with Holdfast's mod system and dispatches events to subscribers
+    /// </summary>
+    public class GameEventDispatcher
+    {
+        private HoldfastEventReceiver _receiver;
+        private bool _registered = false;
+        private float _lastRegistrationAttempt = 0f;
+        private const float REGISTRATION_RETRY_INTERVAL = 2f;
+        
+        public void OnUpdate()
+        {
+            // Try to register with the game if not yet registered
+            if (!_registered && Time.time - _lastRegistrationAttempt > REGISTRATION_RETRY_INTERVAL)
+            {
+                _lastRegistrationAttempt = Time.time;
+                TryRegister();
+            }
+        }
+        
+        private void TryRegister()
+        {
+            if (_receiver != null && HoldfastEventReceiver.IsStillRegistered())
+            {
+                _registered = true;
+                return;
+            }
+            
+            if (HoldfastEventReceiver.Register())
+            {
+                _registered = true;
+                _receiver = HoldfastEventReceiver.Instance;
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Implements IHoldfastSharedMethods and IHoldfastSharedMethods3 to receive events from Holdfast
+    /// Dispatches events to the static GameEvents class for other mods to consume
+    /// </summary>
+    public class HoldfastEventReceiver : IHoldfastSharedMethods, IHoldfastSharedMethods3
+    {
+        public static HoldfastEventReceiver Instance { get; private set; }
+        private static object _lastKnownInstancesList = null;
+        
+        // Client state tracking
+        private static bool _isClientConnected = false;
+        private static ulong _localSteamId = 0;
+        private static int _localPlayerId = -1;
+        private static bool _isMasterLoggedIn = false;
+        
+        /// <summary>Check if connected to a server</summary>
+        public static bool IsClientConnected => _isClientConnected;
+        
+        /// <summary>Local player's Steam ID</summary>
+        public static ulong LocalSteamId => _localSteamId;
+        
+        /// <summary>Local player's in-game ID (-1 if not known)</summary>
+        public static int LocalPlayerId => _localPlayerId;
+        
+        /// <summary>Check if master login is active</summary>
+        public static bool IsMasterLoggedIn => _isMasterLoggedIn || MasterLoginManager.IsMasterLoggedIn();
+        
+        public static bool Register()
+        {
+            // If we're already successfully registered, verify and return
+            if (Instance != null && IsStillRegistered())
+            {
+                return true;
+            }
+            
+            Instance = null;
+            _lastKnownInstancesList = null;
+            
+            try
+            {
+                Assembly assemblyCSharp = Assembly.Load("Assembly-CSharp");
+                
+                // Try to find the mod loader manager
+                Type modLoaderManagerType = assemblyCSharp.GetType("HoldfastGame.ClientModLoaderManager")
+                    ?? assemblyCSharp.GetType("HoldfastGame.ServerModLoaderManager")
+                    ?? assemblyCSharp.GetType("ClientModLoaderManager")
+                    ?? assemblyCSharp.GetType("ServerModLoaderManager");
+                
+                if (modLoaderManagerType == null)
+                {
+                    LauncherCoreModPlugin.Log?.LogInfo("[GameEvents] ModLoaderManager type not found - will retry later");
+                    return false;
+                }
+                
+                // Find the ModLoaderManager instance in the scene
+                UnityEngine.Object loader = UnityEngine.Object.FindObjectOfType(modLoaderManagerType);
+                
+                if (loader == null)
+                {
+                    LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] {modLoaderManagerType.Name} not found in scene - will retry (normal until in-game)");
+                    return false;
+                }
+                
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] Found {modLoaderManagerType.Name}, attempting registration...");
+                
+                // Get the holdfastSharedMethodInstances field
+                FieldInfo instancesField = modLoaderManagerType.GetField("holdfastSharedMethodInstances",
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                
+                object instances = null;
+                
+                if (instancesField != null)
+                {
+                    instances = instancesField.GetValue(loader);
+                }
+                else
+                {
+                    PropertyInfo instancesProp = modLoaderManagerType.GetProperty("holdfastSharedMethodInstances",
+                        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (instancesProp != null)
+                    {
+                        instances = instancesProp.GetValue(loader);
+                    }
+                }
+                
+                if (instances == null)
+                {
+                    LauncherCoreModPlugin.Log?.LogInfo("[GameEvents] holdfastSharedMethodInstances is null - will retry later");
+                    return false;
+                }
+                
+                // Call Add on the collection
+                Type instancesType = instances.GetType();
+                MethodInfo addMethod = instancesType.GetMethod("Add", BindingFlags.Public | BindingFlags.Instance);
+                if (addMethod == null)
+                {
+                    LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] Could not find Add method on {instancesType.Name}");
+                    return false;
+                }
+                
+                // Create our instance and add it
+                Instance = new HoldfastEventReceiver();
+                addMethod.Invoke(instances, new object[] { Instance });
+                
+                // Store reference to instances list for later verification
+                _lastKnownInstancesList = instances;
+                
+                LauncherCoreModPlugin.Log?.LogInfo("═══════════════════════════════════════════");
+                LauncherCoreModPlugin.Log?.LogInfo($"  ✓ GAME EVENTS REGISTERED");
+                LauncherCoreModPlugin.Log?.LogInfo($"    Now receiving Holdfast events!");
+                LauncherCoreModPlugin.Log?.LogInfo("═══════════════════════════════════════════");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LauncherCoreModPlugin.Log?.LogError($"[GameEvents] Error during registration: {ex.Message}");
+                return false;
+            }
+        }
+        
+        public static bool IsStillRegistered()
+        {
+            if (Instance == null || _lastKnownInstancesList == null)
+                return false;
+            
+            try
+            {
+                Type listType = _lastKnownInstancesList.GetType();
+                MethodInfo containsMethod = listType.GetMethod("Contains");
+                if (containsMethod != null)
+                {
+                    return (bool)containsMethod.Invoke(_lastKnownInstancesList, new object[] { Instance });
+                }
+            }
+            catch { }
+            return false;
+        }
+        
+        // ==========================================
+        // IHoldfastSharedMethods Implementation
+        // ==========================================
+        
+        public void OnIsClient(bool client, ulong steamId)
+        {
+            bool wasConnected = _isClientConnected;
+            _isClientConnected = client;
+            
+            if (client)
+            {
+                _localSteamId = steamId;
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] Connected to server (SteamId: {steamId})");
+                GameEvents.RaiseConnectedToServer(steamId);
+            }
+            else
+            {
+                _localPlayerId = -1;
+                _localSteamId = 0;
+                
+                if (wasConnected)
+                {
+                    LauncherCoreModPlugin.Log?.LogInfo("[GameEvents] Disconnected from server");
+                    GameEvents.RaiseDisconnectedFromServer();
+                }
+                
+                // Reset registration state for next server
+                Instance = null;
+                _lastKnownInstancesList = null;
+            }
+        }
+        
+        public void OnPlayerJoined(int playerId, ulong steamId, string name, string regimentTag, bool isBot)
+        {
+            // Track local player
+            if (steamId == _localSteamId && !isBot)
+            {
+                _localPlayerId = playerId;
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] Local player identified: Id={playerId}, Name={name}");
+            }
+            
+            GameEvents.RaisePlayerJoined(playerId, steamId, name, regimentTag, isBot);
+        }
+        
+        public void OnPlayerLeft(int playerId)
+        {
+            GameEvents.RaisePlayerLeft(playerId);
+        }
+        
+        public void OnPlayerSpawned(int playerId, int spawnSectionId, FactionCountry playerFaction, PlayerClass playerClass, int uniformId, GameObject playerObject)
+        {
+            GameEvents.RaisePlayerSpawned(playerId, spawnSectionId, playerFaction, playerClass, uniformId, playerObject);
+            
+            // Also raise local player spawned event if this is our player
+            if (playerId == _localPlayerId)
+            {
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] Local player spawned: Class={playerClass}, Faction={playerFaction}");
+                GameEvents.RaiseLocalPlayerSpawned(playerId, playerFaction, playerClass);
+            }
+        }
+        
+        public void OnRoundDetails(int roundId, string serverName, string mapName, FactionCountry attackingFaction, FactionCountry defendingFaction, GameplayMode gameplayMode, GameType gameType)
+        {
+            LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] Round: {mapName} ({gameplayMode})");
+            GameEvents.RaiseRoundDetails(roundId, serverName, mapName, attackingFaction, defendingFaction, gameplayMode, gameType);
+        }
+        
+        public void OnPlayerKilledPlayer(int killerPlayerId, int victimPlayerId, EntityHealthChangedReason reason, string details)
+        {
+            GameEvents.RaisePlayerKilledPlayer(killerPlayerId, victimPlayerId, reason, details);
+        }
+        
+        public void OnRCLogin(int playerId, string inputPassword, bool isLoggedIn)
+        {
+            LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] RC Login: playerId={playerId}, isLoggedIn={isLoggedIn}");
+            GameEvents.RaiseRCLogin(playerId, isLoggedIn);
+        }
+        
+        public void OnRoundEndFactionWinner(FactionCountry factionCountry, FactionRoundWinnerReason reason)
+        {
+            GameEvents.RaiseRoundEndFactionWinner(factionCountry, reason);
+        }
+        
+        // IHoldfastSharedMethods3 Implementation
+        public void OnPlayerPacket(int playerId, Vector3 position, Vector3 rotation)
+        {
+            GameEvents.RaisePlayerPacket(playerId, position, rotation);
+        }
+        
+        public void OnPlayerConnected(int playerId, bool isAutoAdmin, string backendId)
+        {
+            LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] Player connected: Id={playerId}, AutoAdmin={isAutoAdmin}");
+            GameEvents.RaisePlayerConnected(playerId, isAutoAdmin, backendId);
+        }
+        
+        public void OnPlayerDisconnected(int playerId) { }
+        public void OnStartSpectate(int playerId, int spectatedPlayerId) { }
+        public void OnStopSpectate(int playerId, int spectatedPlayerId) { }
+        public void OnStartFreeflight(int playerId) { }
+        public void OnStopFreeflight(int playerId) { }
+        public void OnMeleeArenaRoundEndFactionWinner(int roundId, bool attackers) { }
+        
+        // Empty IHoldfastSharedMethods stubs
+        public void OnUpdateTimeRemaining(float time) { }
+        public void OnUpdateSyncedTime(double time) { }
+        public void OnUpdateElapsedTime(float time) { }
+        public void OnIsServer(bool server) { }
+        public void OnSyncValueState(int value) { }
+        public void PassConfigVariables(string[] value) { }
+        public void OnPlayerHurt(int playerId, byte oldHp, byte newHp, EntityHealthChangedReason reason) { }
+        public void OnScorableAction(int playerId, int score, ScorableActionType reason) { }
+        public void OnPlayerShoot(int playerId, bool dryShot) { }
+        public void OnShotInfo(int playerId, int shotCount, Vector3[][] shotsPointsPositions, float[] trajectileDistances, float[] distanceFromFiringPositions, float[] horizontalDeviationAngles, float[] maxHorizontalDeviationAngles, float[] muzzleVelocities, float[] gravities, float[] damageHitBaseDamages, float[] damageRangeUnitValues, float[] damagePostTraitAndBuffValues, float[] totalDamages, Vector3[] hitPositions, Vector3[] hitDirections, int[] hitPlayerIds, int[] hitDamageableObjectIds, int[] hitShipIds, int[] hitVehicleIds) { }
+        public void OnPlayerBlock(int attackingPlayerId, int defendingPlayerId) { }
+        public void OnPlayerMeleeStartSecondaryAttack(int playerId) { }
+        public void OnPlayerWeaponSwitch(int playerId, string weapon) { }
+        public void OnPlayerStartCarry(int playerId, CarryableObjectType carryableObject) { }
+        public void OnPlayerEndCarry(int playerId) { }
+        public void OnPlayerShout(int playerId, CharacterVoicePhrase voicePhrase) { }
+        public void OnConsoleCommand(string input, string output, bool success) { }
+        public void OnRCCommand(int playerId, string input, string output, bool success) { }
+        public void OnTextMessage(int playerId, TextChatChannel channel, string text) { }
+        public void OnAdminPlayerAction(int playerId, int adminId, ServerAdminAction action, string reason) { }
+        public void OnDamageableObjectDamaged(GameObject damageableObject, int damageableObjectId, int shipId, int oldHp, int newHp) { }
+        public void OnInteractableObjectInteraction(int playerId, int interactableObjectId, GameObject interactableObject, InteractionActivationType interactionActivationType, int nextActivationStateTransitionIndex) { }
+        public void OnEmplacementPlaced(int itemId, GameObject objectBuilt, EmplacementType emplacementType) { }
+        public void OnEmplacementConstructed(int itemId) { }
+        public void OnCapturePointCaptured(int capturePoint) { }
+        public void OnCapturePointOwnerChanged(int capturePoint, FactionCountry factionCountry) { }
+        public void OnCapturePointDataUpdated(int capturePoint, int defendingPlayerCount, int attackingPlayerCount) { }
+        public void OnBuffStart(int playerId, BuffType buff) { }
+        public void OnBuffStop(int playerId, BuffType buff) { }
+        public void OnRoundEndPlayerWinner(int playerId) { }
+        public void OnVehicleSpawned(int vehicleId, FactionCountry vehicleFaction, PlayerClass vehicleClass, GameObject vehicleObject, int ownerPlayerId) { }
+        public void OnVehicleHurt(int vehicleId, byte oldHp, byte newHp, EntityHealthChangedReason reason) { }
+        public void OnPlayerKilledVehicle(int killerPlayerId, int victimVehicleId, EntityHealthChangedReason reason, string details) { }
+        public void OnShipSpawned(int shipId, GameObject shipObject, FactionCountry shipfaction, ShipType shipType, int shipName) { }
+        public void OnShipDamaged(int shipId, int oldHp, int newHp) { }
+    }
+    
+    #endregion
+    
+    #region Master Login Manager
+    
+    /// <summary>
+    /// Manages master login token verification
+    /// </summary>
+    public static class MasterLoginManager
+    {
+        private static bool _checked = false;
+        private static bool _isMasterLoggedIn = false;
+        private static float _lastCheck = 0f;
+        private const float CHECK_INTERVAL = 5f;
+        
+        private const string HASH_SALT = "HF_MODDING_2024_XARK";
+        private const string LOGIN_TOKEN_FILE = "master_login.token";
+        
+        public static bool IsMasterLoggedIn()
+        {
+            if (!_checked || Time.time - _lastCheck > CHECK_INTERVAL)
+            {
+                _lastCheck = Time.time;
+                _checked = true;
+                CheckToken();
+            }
+            return _isMasterLoggedIn;
+        }
+        
+        private static void CheckToken()
+        {
+            _isMasterLoggedIn = false;
+            
+            try
+            {
+                foreach (string tokenPath in GetPossibleTokenPaths())
+                {
+                    if (File.Exists(tokenPath))
+                    {
+                        string token = File.ReadAllText(tokenPath).Trim();
+                        if (VerifySecureToken(token))
+                        {
+                            _isMasterLoggedIn = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+        
+        private static string[] GetPossibleTokenPaths()
+        {
+            var paths = new List<string>();
+            
+            // AppData location
+            string appDataFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "HoldfastModding");
+            paths.Add(Path.Combine(appDataFolder, LOGIN_TOKEN_FILE));
+            
+            // BepInEx plugins folder
+            string pluginsFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            if (!string.IsNullOrEmpty(pluginsFolder))
+            {
+                paths.Add(Path.Combine(pluginsFolder, LOGIN_TOKEN_FILE));
+                paths.Add(Path.Combine(pluginsFolder, "Mods", LOGIN_TOKEN_FILE));
+            }
+            
+            return paths.ToArray();
+        }
+        
+        private static bool VerifySecureToken(string token)
+        {
+            if (token == "MASTER_ACCESS_GRANTED") return true;
+            if (token == CreateExpectedToken(DateTime.UtcNow)) return true;
+            if (token == CreateExpectedToken(DateTime.UtcNow.AddDays(-1))) return true;
+            return false;
+        }
+        
+        private static string CreateExpectedToken(DateTime date)
+        {
+            string machineId = Environment.MachineName + Environment.UserName;
+            string timestamp = date.ToString("yyyyMMdd");
+            string tokenData = $"MASTER_ACCESS|{machineId}|{timestamp}";
+            
+            using (var sha256 = SHA256.Create())
+            {
+                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(tokenData + HASH_SALT));
+                var sb = new StringBuilder();
+                foreach (byte b in bytes)
+                {
+                    sb.Append(b.ToString("x2"));
+                }
+                return sb.ToString();
+            }
+        }
+    }
+    
+    #endregion
+    
+    #region Server Browser Filter
+    
     /// <summary>
     /// Filters official "Anvil Game Studios Official" servers from the server browser
     /// unless the user is master logged in via the launcher.
@@ -53,13 +581,8 @@ namespace LauncherCoreMod
     public class ServerBrowserFilter
     {
         private static ManualLogSource _log => LauncherCoreModPlugin.Log;
-        private static bool _isMasterLoggedIn = false;
         private static float _lastTokenCheck = 0f;
         private const float TOKEN_CHECK_INTERVAL = 5f;
-        
-        // Token validation (must match launcher)
-        private const string HASH_SALT = "HF_MODDING_2024_XARK";
-        private const string LOGIN_TOKEN_FILE = "master_login.token";
         
         // Harmony
         private static Harmony _harmony;
@@ -79,9 +602,8 @@ namespace LauncherCoreMod
         public void Initialize()
         {
             _log?.LogInfo("[ServerBrowserFilter] Initializing...");
-            CheckMasterLoginToken();
             ApplyHarmonyPatches();
-            _log?.LogInfo($"[ServerBrowserFilter] Ready (Master login: {_isMasterLoggedIn})");
+            _log?.LogInfo($"[ServerBrowserFilter] Ready (Master login: {MasterLoginManager.IsMasterLoggedIn()})");
         }
         
         public void Shutdown()
@@ -166,7 +688,7 @@ namespace LauncherCoreMod
         {
             try
             {
-                if (_isMasterLoggedIn) return true;
+                if (MasterLoginManager.IsMasterLoggedIn()) return true;
                 
                 // Extract server name from ValueTuple<Int32, String, Int32> - Item2 is server name
                 string serverName = ExtractServerNameFromTuple(serverTarget);
@@ -275,14 +797,7 @@ namespace LauncherCoreMod
         
         public void OnUpdate()
         {
-            // Periodic token check
-            if (Time.time - _lastTokenCheck > TOKEN_CHECK_INTERVAL)
-            {
-                _lastTokenCheck = Time.time;
-                CheckMasterLoginToken();
-            }
-            
-            if (_isMasterLoggedIn) return;
+            if (MasterLoginManager.IsMasterLoggedIn()) return;
             
             // Fallback UI filtering
             if (Time.time - _lastServerScan > SERVER_SCAN_INTERVAL)
@@ -330,92 +845,14 @@ namespace LauncherCoreMod
             catch { }
         }
         
-        private void CheckMasterLoginToken()
-        {
-            bool wasLoggedIn = _isMasterLoggedIn;
-            _isMasterLoggedIn = false;
-            
-            try
-            {
-                foreach (string tokenPath in GetPossibleTokenPaths())
-                {
-                    if (File.Exists(tokenPath))
-                    {
-                        string token = File.ReadAllText(tokenPath).Trim();
-                        if (VerifySecureToken(token))
-                        {
-                            _isMasterLoggedIn = true;
-                            break;
-                        }
-                    }
-                }
-                
-                if (_isMasterLoggedIn != wasLoggedIn)
-                {
-                    _log?.LogInfo(_isMasterLoggedIn 
-                        ? "[ServerBrowserFilter] Master login detected - official servers visible"
-                        : "[ServerBrowserFilter] No master login - official servers hidden");
-                }
-            }
-            catch { }
-        }
-        
-        private string[] GetPossibleTokenPaths()
-        {
-            var paths = new List<string>();
-            
-            // AppData location
-            string appDataFolder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "HoldfastModding");
-            paths.Add(Path.Combine(appDataFolder, LOGIN_TOKEN_FILE));
-            
-            // BepInEx plugins folder
-            string pluginsFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            if (!string.IsNullOrEmpty(pluginsFolder))
-            {
-                paths.Add(Path.Combine(pluginsFolder, LOGIN_TOKEN_FILE));
-                paths.Add(Path.Combine(pluginsFolder, "Mods", LOGIN_TOKEN_FILE));
-            }
-            
-            return paths.ToArray();
-        }
-        
-        private bool VerifySecureToken(string token)
-        {
-            if (token == "MASTER_ACCESS_GRANTED") return true;
-            if (token == CreateExpectedToken(DateTime.UtcNow)) return true;
-            if (token == CreateExpectedToken(DateTime.UtcNow.AddDays(-1))) return true;
-            return false;
-        }
-        
-        private string CreateExpectedToken(DateTime date)
-        {
-            string machineId = Environment.MachineName + Environment.UserName;
-            string timestamp = date.ToString("yyyyMMdd");
-            string tokenData = $"MASTER_ACCESS|{machineId}|{timestamp}";
-            
-            using (var sha256 = SHA256.Create())
-            {
-                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(tokenData + HASH_SALT));
-                var sb = new StringBuilder();
-                foreach (byte b in bytes)
-                {
-                    sb.Append(b.ToString("x2"));
-                }
-                return sb.ToString();
-            }
-        }
-        
         public static bool ShouldFilterServer(string serverName)
         {
             if (string.IsNullOrEmpty(serverName)) return false;
-            if (_isMasterLoggedIn) return false;
+            if (MasterLoginManager.IsMasterLoggedIn()) return false;
             
             return serverName.StartsWith("Anvil Game Studios Official", StringComparison.OrdinalIgnoreCase);
         }
-        
-        public static bool IsMasterLoggedIn() => _isMasterLoggedIn;
     }
+    
+    #endregion
 }
-
