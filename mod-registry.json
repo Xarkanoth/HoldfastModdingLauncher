@@ -1,6 +1,6 @@
 ﻿{
     "schemaVersion":  "1.1",
-    "lastUpdated":  "2025-12-28T19:02:26Z",
+    "lastUpdated":  "2025-12-28T19:06:38Z",
     "registryUrl":  "https://raw.githubusercontent.com/Xarkanoth/HoldfastModdingLauncher/main/mod-registry.json",
     "modsBaseUrl":  "https://raw.githubusercontent.com/Xarkanoth/HoldfastMods/main",
     "releasesBaseUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download",
@@ -69,29 +69,28 @@
                  {
                      "id":  "CustomCrosshairs",
                      "name":  "Custom Crosshairs",
-                     "description":  "Replace weapon crosshairs with custom images! Includes rangefinder feature (master login required). Place PNG files in BepInEx/config/CustomCrosshairs/Crosshairs/ folder. Press F9 in-game to reload.",
+                     "description":  "Replace weapon crosshairs with custom images! Configure via the launcher settings.",
                      "author":  "Xarkanoth",
-                     "version":  "1.0.6",
+                     "version":  "1.0.8",
                      "minLauncherVersion":  "1.0.80",
-                     "requirements":  "Rangefinder requires master login.",
+                     "requirements":  "",
                      "category":  "Visual",
                      "tags":  [
                                   "crosshair",
                                   "customization",
                                   "visual",
-                                  "rangefinder",
                                   "weapon"
                               ],
                      "repositoryUrl":  "https://github.com/Xarkanoth/HoldfastMods",
                      "infoUrl":  "",
-                     "releaseUrl":  "https://api.github.com/repos/Xarkanoth/HoldfastMods/releases/tags/CustomCrosshairs-v1.0.6",
-                     "downloadUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download/CustomCrosshairs-v1.0.6/CustomCrosshairs.dll",
+                     "releaseUrl":  "https://api.github.com/repos/Xarkanoth/HoldfastMods/releases/tags/CustomCrosshairs-v1.0.8",
+                     "downloadUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download/CustomCrosshairs-v1.0.8/CustomCrosshairs.dll",
                      "dllName":  "CustomCrosshairs.dll",
                      "iconUrl":  "",
                      "screenshots":  [
 
                                      ],
-                     "changelog":  "v1.0.4 - Initial release with custom crosshair replacement and rangefinder feature (master login required).",
+                     "changelog":  "v1.0.6 - Custom crosshair replacement with settings UI.",
                      "dependencies":  [
 
                                       ],
