@@ -461,9 +461,6 @@ namespace AdvancedAdminUI.Utils
         {
             try
             {
-                // ALWAYS log player joins - critical for debugging
-                LogMethodCall("OnPlayerJoined", $"id={playerId}, name={name}, steam={steamId}, isBot={isBot}");
-                
                 // Track our local player ID by matching Steam ID
                 if (steamId == _localSteamId && !isBot)
                 {
@@ -514,13 +511,13 @@ namespace AdvancedAdminUI.Utils
             }
         }
 
-        public void OnSyncValueState(int value) { LogMethodCall("OnSyncValueState", $"value={value}"); }
+        public void OnSyncValueState(int value) { }
 
         public void OnUpdateSyncedTime(double time) { /* Don't log - too spammy */ }
 
         public void OnUpdateElapsedTime(float time) { /* Don't log - too spammy */ }
 
-        public void OnIsServer(bool server) { LogMethodCall("OnIsServer", $"server={server}"); }
+        public void OnIsServer(bool server) { }
 
         public void OnIsClient(bool client, ulong steamId) 
         {
@@ -713,7 +710,7 @@ namespace AdvancedAdminUI.Utils
         }
         
 
-        public void PassConfigVariables(string[] value) { LogMethodCall("PassConfigVariables", $"count={value?.Length ?? 0}"); }
+        public void PassConfigVariables(string[] value) { }
 
         public void OnPlayerHurt(int playerId, byte oldHp, byte newHp, EntityHealthChangedReason reason) { }
 
@@ -788,19 +785,11 @@ namespace AdvancedAdminUI.Utils
             }
         }
 
-        public void OnRCCommand(int playerId, string input, string output, bool success) 
-        { 
-            // Log all RC commands - these indicate admin activity
-            ColoredLogger.Log(ColoredLogger.BrightYellow, $"[EVENT] OnRCCommand: playerId={playerId}, input='{input}', success={success}");
-        }
+        public void OnRCCommand(int playerId, string input, string output, bool success) { }
 
         public void OnTextMessage(int playerId, TextChatChannel channel, string text) { }
 
-        public void OnAdminPlayerAction(int playerId, int adminId, ServerAdminAction action, string reason) 
-        { 
-            // Log admin actions - these confirm admin status
-            ColoredLogger.Log(ColoredLogger.BrightMagenta, $"[EVENT] OnAdminPlayerAction: playerId={playerId}, adminId={adminId}, action={action}");
-        }
+        public void OnAdminPlayerAction(int playerId, int adminId, ServerAdminAction action, string reason) { }
 
         public void OnDamageableObjectDamaged(GameObject damageableObject, int damageableObjectId, int shipId, int oldHp, int newHp) { }
 
