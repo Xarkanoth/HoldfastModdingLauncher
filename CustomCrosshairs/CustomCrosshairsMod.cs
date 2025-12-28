@@ -14,7 +14,7 @@ using UnityEngine.UI;
 
 namespace CustomCrosshairs
 {
-    [BepInPlugin("com.xarkanoth.customcrosshairs", "Custom Crosshairs", "1.0.13")]
+    [BepInPlugin("com.xarkanoth.customcrosshairs", "Custom Crosshairs", "1.0.15")]
     public class CustomCrosshairsMod : BaseUnityPlugin
     {
         public static ManualLogSource Log { get; private set; }
@@ -84,6 +84,8 @@ namespace CustomCrosshairs
             
             // Check master login
             CheckMasterLoginToken();
+            
+            Log.LogInfo($"Initial state - Master login: {_isMasterLoggedIn}, RangefinderEnabled: {_config?.RangefinderEnabled}");
         }
         
         private void LoadConfig()
@@ -204,6 +206,7 @@ namespace CustomCrosshairs
                     if (!_loggedSearching)
                     {
                         Log.LogInfo($"Found crosshair panel at: {CROSSHAIR_PANEL_PATH}");
+                        Log.LogInfo($"Master login: {_isMasterLoggedIn}, RangefinderEnabled: {_config?.RangefinderEnabled}");
                         _loggedSearching = true;
                     }
                     
@@ -216,8 +219,19 @@ namespace CustomCrosshairs
                     // Create rangefinder if enabled and not yet created
                     if (_isMasterLoggedIn && _config != null && _config.RangefinderEnabled && !_rangefinderCreated)
                     {
+                        Log.LogInfo("Creating rangefinder texts (conditions met)");
                         CreateRangefinderTexts();
                         _rangefinderCreated = true;
+                    }
+                    else if (!_rangefinderCreated)
+                    {
+                        // Log why rangefinder isn't being created
+                        if (!_isMasterLoggedIn)
+                            Log.LogWarning("Rangefinder not created: Master login = false");
+                        else if (_config == null)
+                            Log.LogWarning("Rangefinder not created: Config is null");
+                        else if (!_config.RangefinderEnabled)
+                            Log.LogWarning("Rangefinder not created: RangefinderEnabled = false");
                     }
                 }
                 else
@@ -629,9 +643,18 @@ namespace CustomCrosshairs
                         if (VerifySecureToken(token))
                         {
                             _isMasterLoggedIn = true;
+                            if (!wasLoggedIn)
+                            {
+                                Log.LogInfo($"Master login token verified at: {tokenPath}");
+                            }
                             break;
                         }
                     }
+                }
+                
+                if (!_isMasterLoggedIn && wasLoggedIn)
+                {
+                    Log.LogInfo("Master login token not found or invalid");
                 }
             }
             catch (Exception ex)
