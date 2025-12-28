@@ -14,7 +14,7 @@ using UnityEngine.UI;
 
 namespace CustomCrosshairs
 {
-    [BepInPlugin("com.xarkanoth.customcrosshairs", "Custom Crosshairs", "1.0.8")]
+    [BepInPlugin("com.xarkanoth.customcrosshairs", "Custom Crosshairs", "1.0.10")]
     public class CustomCrosshairsMod : BaseUnityPlugin
     {
         public static ManualLogSource Log { get; private set; }
@@ -50,6 +50,7 @@ namespace CustomCrosshairs
         private float _lastRaycastTime = 0f;
         private const float RAYCAST_INTERVAL = 0.1f;
         private float _currentDistance = 0f;
+        private int _raycastLayerMask = -1; // Will be calculated on first use
         
         // Tracking
         private bool _crosshairsReplaced = false;
@@ -520,12 +521,34 @@ namespace CustomCrosshairs
                 if (_mainCamera == null)
                     return;
                 
+                // Calculate layer mask on first use - ignore UI, triggers, and player layers
+                if (_raycastLayerMask == -1)
+                {
+                    // Start with all layers
+                    _raycastLayerMask = ~0;
+                    
+                    // Ignore common non-world layers (by name if they exist)
+                    string[] layersToIgnore = { "UI", "Ignore Raycast", "TransparentFX", "Water", "LocalPlayer", "Player" };
+                    foreach (string layerName in layersToIgnore)
+                    {
+                        int layer = LayerMask.NameToLayer(layerName);
+                        if (layer >= 0)
+                        {
+                            _raycastLayerMask &= ~(1 << layer);
+                        }
+                    }
+                    
+                    Log.LogInfo($"Rangefinder LayerMask calculated: {_raycastLayerMask}");
+                }
+                
                 // Raycast from camera center forward
                 Ray ray = _mainCamera.ScreenPointToRay(new Vector3(Screen.width / 2f, Screen.height / 2f, 0f));
                 RaycastHit hit;
                 
                 float distance = 0f;
-                if (Physics.Raycast(ray, out hit, 1000f))
+                
+                // Use layermask to ignore UI and player layers, QueryTriggerInteraction.Ignore to skip triggers
+                if (Physics.Raycast(ray, out hit, 2000f, _raycastLayerMask, QueryTriggerInteraction.Ignore))
                 {
                     distance = hit.distance;
                 }
