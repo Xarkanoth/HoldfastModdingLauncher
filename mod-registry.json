@@ -1,6 +1,6 @@
 ﻿{
     "schemaVersion":  "1.1",
-    "lastUpdated":  "2025-12-28T19:24:12Z",
+    "lastUpdated":  "2025-12-28T19:28:26Z",
     "registryUrl":  "https://raw.githubusercontent.com/Xarkanoth/HoldfastModdingLauncher/main/mod-registry.json",
     "modsBaseUrl":  "https://raw.githubusercontent.com/Xarkanoth/HoldfastMods/main",
     "releasesBaseUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download",
@@ -41,7 +41,7 @@
                      "name":  "Custom Splash Screen",
                      "description":  "Replace the Holdfast splash screen with custom videos! Select from pre-defined splash videos or use your own custom video file. Press F8 in-game to configure.",
                      "author":  "Xarkanoth",
-                     "version":  "1.0.10",
+                     "version":  "1.0.13",
                      "minLauncherVersion":  "1.0.142",
                      "requirements":  "",
                      "category":  "Visual",
@@ -53,8 +53,8 @@
                               ],
                      "repositoryUrl":  "https://github.com/Xarkanoth/HoldfastMods",
                      "infoUrl":  "",
-                     "releaseUrl":  "https://api.github.com/repos/Xarkanoth/HoldfastMods/releases/tags/CustomSplashScreen-v1.0.10",
-                     "downloadUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download/CustomSplashScreen-v1.0.10/CustomSplashScreen.dll",
+                     "releaseUrl":  "https://api.github.com/repos/Xarkanoth/HoldfastMods/releases/tags/CustomSplashScreen-v1.0.13",
+                     "downloadUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download/CustomSplashScreen-v1.0.13/CustomSplashScreen.dll",
                      "dllName":  "CustomSplashScreen.dll",
                      "iconUrl":  "",
                      "screenshots":  [
