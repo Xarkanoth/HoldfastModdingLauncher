@@ -21,7 +21,7 @@ namespace LauncherCoreMod
     /// - Game event dispatching via IHoldfastSharedMethods (for other mods to subscribe to)
     /// - Master login verification
     /// </summary>
-    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.1")]
+    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.3")]
     public class LauncherCoreModPlugin : BaseUnityPlugin
     {
         public static ManualLogSource Log { get; private set; }
