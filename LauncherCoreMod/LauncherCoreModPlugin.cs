@@ -16,13 +16,43 @@ using UnityEngine.UI;
 namespace LauncherCoreMod
 {
     /// <summary>
+    /// Persistent runner MonoBehaviour on its own GameObject.
+    /// This stays active even when BepInEx_Manager is disabled.
+    /// </summary>
+    public class LauncherCoreRunner : MonoBehaviour
+    {
+        private LauncherCoreModPlugin _plugin;
+        
+        public void Initialize(LauncherCoreModPlugin plugin)
+        {
+            _plugin = plugin;
+            LauncherCoreModPlugin.Log?.LogInfo("[LauncherCoreRunner] Initialized - Update() will call plugin methods");
+        }
+        
+        void Update()
+        {
+            if (_plugin != null)
+            {
+                try
+                {
+                    _plugin.DoUpdate();
+                }
+                catch (Exception ex)
+                {
+                    LauncherCoreModPlugin.Log?.LogError($"[LauncherCoreRunner] Exception in Update: {ex}");
+                }
+            }
+        }
+    }
+    
+    /// <summary>
     /// Core mod for the Holdfast Modding Launcher
     /// Provides essential features for all launcher users:
     /// - Server browser filtering (hides official servers for non-master users)
     /// - Game event dispatching via IHoldfastSharedMethods (for other mods to subscribe to)
     /// - Master login verification
     /// </summary>
-    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.9")]
+    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.10")]
     public class LauncherCoreModPlugin : BaseUnityPlugin
     {
         public static ManualLogSource Log { get; private set; }
@@ -30,12 +60,20 @@ namespace LauncherCoreMod
         
         private ServerBrowserFilter _serverBrowserFilter;
         private GameEventDispatcher _eventDispatcher;
+        private GameObject _runnerObject;
         
         void Awake()
         {
             Instance = this;
             Log = Logger;
             Log.LogInfo("Launcher Core Mod loaded!");
+            
+            // Create persistent runner GameObject
+            _runnerObject = new GameObject("LauncherCoreModRunner");
+            DontDestroyOnLoad(_runnerObject);
+            var runner = _runnerObject.AddComponent<LauncherCoreRunner>();
+            runner.Initialize(this);
+            Log.LogInfo("[Awake] Created persistent runner GameObject");
             
             // Initialize server browser filter
             _serverBrowserFilter = new ServerBrowserFilter();
@@ -45,11 +83,11 @@ namespace LauncherCoreMod
             _eventDispatcher = new GameEventDispatcher();
             Log.LogInfo("[Awake] Game event dispatcher initialized");
             
-            // Try to register immediately (will retry later if ClientModLoaderManager not found yet)
+            // Try immediate registration
             _eventDispatcher.TryRegisterNow();
         }
         
-        void Update()
+        public void DoUpdate()
         {
             _serverBrowserFilter?.OnUpdate();
             _eventDispatcher?.OnUpdate();
