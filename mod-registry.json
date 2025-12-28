@@ -65,6 +65,37 @@
 
                                       ],
                      "isEnabled":  true
+                 },
+                 {
+                     "id":  "CustomCrosshairs",
+                     "name":  "Custom Crosshairs",
+                     "description":  "Replace weapon crosshairs with custom images! Includes rangefinder feature (master login required). Place PNG files in BepInEx/config/CustomCrosshairs/Crosshairs/ folder. Press F9 in-game to reload.",
+                     "author":  "Xarkanoth",
+                     "version":  "1.0.4",
+                     "minLauncherVersion":  "1.0.80",
+                     "requirements":  "Rangefinder requires master login.",
+                     "category":  "Visual",
+                     "tags":  [
+                                  "crosshair",
+                                  "customization",
+                                  "visual",
+                                  "rangefinder",
+                                  "weapon"
+                              ],
+                     "repositoryUrl":  "https://github.com/Xarkanoth/HoldfastMods",
+                     "infoUrl":  "",
+                     "releaseUrl":  "https://api.github.com/repos/Xarkanoth/HoldfastMods/releases/tags/CustomCrosshairs-v1.0.4",
+                     "downloadUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download/CustomCrosshairs-v1.0.4/CustomCrosshairs.dll",
+                     "dllName":  "CustomCrosshairs.dll",
+                     "iconUrl":  "",
+                     "screenshots":  [
+
+                                     ],
+                     "changelog":  "v1.0.4 - Initial release with custom crosshair replacement and rangefinder feature (master login required).",
+                     "dependencies":  [
+
+                                      ],
+                     "isEnabled":  true
                  }
              ],
     "categories":  [
