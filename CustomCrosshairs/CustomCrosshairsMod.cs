@@ -14,7 +14,7 @@ using UnityEngine.UI;
 
 namespace CustomCrosshairs
 {
-    [BepInPlugin("com.xarkanoth.customcrosshairs", "Custom Crosshairs", "1.0.15")]
+    [BepInPlugin("com.xarkanoth.customcrosshairs", "Custom Crosshairs", "1.0.17")]
     public class CustomCrosshairsMod : BaseUnityPlugin
     {
         public static ManualLogSource Log { get; private set; }
@@ -200,6 +200,12 @@ namespace CustomCrosshairs
                 
                 // Try to find crosshair panel - it only exists when in-game
                 GameObject crosshairPanel = GameObject.Find(CROSSHAIR_PANEL_PATH);
+                
+                // Log search attempts periodically (every 5 seconds) when panel not found
+                if (crosshairPanel == null && Time.time % 5f < SEARCH_INTERVAL)
+                {
+                    Log.LogInfo($"Searching for crosshair panel... (in-game: {Time.time > 10f}, master login: {_isMasterLoggedIn}, rangefinder enabled: {_config?.RangefinderEnabled})");
+                }
                 
                 if (crosshairPanel != null)
                 {
