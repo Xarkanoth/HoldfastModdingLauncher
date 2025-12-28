@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -15,74 +16,13 @@ using UnityEngine.UI;
 namespace LauncherCoreMod
 {
     /// <summary>
-    /// Separate runner MonoBehaviour that lives on its own GameObject.
-    /// This ensures Update() is called even if BepInEx_Manager gets deactivated.
-    /// </summary>
-    public class CoreModRunner : MonoBehaviour
-    {
-        private bool _hasLoggedFirstUpdate = false;
-        private int _updateCount = 0;
-        
-        void Awake()
-        {
-            LauncherCoreModPlugin.Log?.LogInfo("[CoreModRunner] Awake() called - component initializing");
-        }
-        
-        void Start()
-        {
-            LauncherCoreModPlugin.Log?.LogInfo("[CoreModRunner] Start() called - component is active!");
-        }
-        
-        void OnEnable()
-        {
-            LauncherCoreModPlugin.Log?.LogInfo("[CoreModRunner] OnEnable() - runner enabled");
-        }
-        
-        void Update()
-        {
-            _updateCount++;
-            
-            try
-            {
-                if (!_hasLoggedFirstUpdate)
-                {
-                    _hasLoggedFirstUpdate = true;
-                    LauncherCoreModPlugin.Log?.LogInfo($"[CoreModRunner] First Update() confirmed - runner is active! Instance={LauncherCoreModPlugin.Instance != null}");
-                }
-                
-                if (_updateCount == 100)
-                {
-                    LauncherCoreModPlugin.Log?.LogInfo("[CoreModRunner] 100 updates processed");
-                }
-                
-                if (LauncherCoreModPlugin.Instance != null)
-                {
-                    LauncherCoreModPlugin.Instance.DoUpdate();
-                }
-            }
-            catch (Exception ex)
-            {
-                if (_updateCount < 5)
-                {
-                    LauncherCoreModPlugin.Log?.LogError($"[CoreModRunner] Exception in Update: {ex.Message}\n{ex.StackTrace}");
-                }
-            }
-        }
-        
-        void OnApplicationQuit()
-        {
-            LauncherCoreModPlugin.Instance?.DoOnApplicationQuit();
-        }
-    }
-    
-    /// <summary>
     /// Core mod for the Holdfast Modding Launcher
     /// Provides essential features for all launcher users:
     /// - Server browser filtering (hides official servers for non-master users)
     /// - Game event dispatching via IHoldfastSharedMethods (for other mods to subscribe to)
     /// - Master login verification
     /// </summary>
-    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.7")]
+    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.9")]
     public class LauncherCoreModPlugin : BaseUnityPlugin
     {
         public static ManualLogSource Log { get; private set; }
@@ -90,7 +30,6 @@ namespace LauncherCoreMod
         
         private ServerBrowserFilter _serverBrowserFilter;
         private GameEventDispatcher _eventDispatcher;
-        private GameObject _runnerObject;
         
         void Awake()
         {
@@ -98,28 +37,25 @@ namespace LauncherCoreMod
             Log = Logger;
             Log.LogInfo("Launcher Core Mod loaded!");
             
-            // Create a persistent runner GameObject that won't be disabled
-            _runnerObject = new GameObject("LauncherCoreModRunner");
-            UnityEngine.Object.DontDestroyOnLoad(_runnerObject);
-            _runnerObject.AddComponent<CoreModRunner>();
-            Log.LogInfo("[Awake] Created persistent runner GameObject");
-            
             // Initialize server browser filter
             _serverBrowserFilter = new ServerBrowserFilter();
             _serverBrowserFilter.Initialize();
             
-            // Initialize game event dispatcher
+            // Initialize game event dispatcher and try immediate registration
             _eventDispatcher = new GameEventDispatcher();
             Log.LogInfo("[Awake] Game event dispatcher initialized");
+            
+            // Try to register immediately (will retry later if ClientModLoaderManager not found yet)
+            _eventDispatcher.TryRegisterNow();
         }
         
-        public void DoUpdate()
+        void Update()
         {
             _serverBrowserFilter?.OnUpdate();
             _eventDispatcher?.OnUpdate();
         }
         
-        public void DoOnApplicationQuit()
+        void OnApplicationQuit()
         {
             _serverBrowserFilter?.Shutdown();
         }
@@ -237,19 +173,14 @@ namespace LauncherCoreMod
         private float _lastRegistrationAttempt = 0f;
         private const float REGISTRATION_RETRY_INTERVAL = 2f;
         private bool _loggedWaiting = false;
-        private int _updateCallCount = 0;
-        private bool _loggedFirstUpdate = false;
+        
+        public void TryRegisterNow()
+        {
+            TryRegister();
+        }
         
         public void OnUpdate()
         {
-            _updateCallCount++;
-            
-            if (!_loggedFirstUpdate)
-            {
-                _loggedFirstUpdate = true;
-                LauncherCoreModPlugin.Log?.LogInfo("[GameEventDispatcher] First OnUpdate() call received!");
-            }
-            
             // Try to register with the game if not yet registered
             if (!_registered && Time.time - _lastRegistrationAttempt > REGISTRATION_RETRY_INTERVAL)
             {
