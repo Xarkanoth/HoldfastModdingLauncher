@@ -97,7 +97,7 @@ namespace AdvancedAdminUI
         }
     }
 
-    [BepInPlugin("com.xarkanoth.advancedadminui", "Advanced Admin UI", "1.0.44")]
+    [BepInPlugin("com.xarkanoth.advancedadminui", "Advanced Admin UI", "1.0.46")]
     public class AdvancedAdminUIMod : BaseUnityPlugin
     {
         public static ManualLogSource Log;

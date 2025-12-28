@@ -7,9 +7,9 @@
     <OutputPath>..\</OutputPath>
     <AssemblyName>AdvancedAdminUI</AssemblyName>
     <RootNamespace>AdvancedAdminUI</RootNamespace>
-    <Version>1.0.44</Version>
-    <AssemblyVersion>1.0.44.0</AssemblyVersion>
-    <FileVersion>1.0.44.0</FileVersion>
+    <Version>1.0.46</Version>
+    <AssemblyVersion>1.0.46.0</AssemblyVersion>
+    <FileVersion>1.0.46.0</FileVersion>
   </PropertyGroup>
   
   <ItemGroup>
