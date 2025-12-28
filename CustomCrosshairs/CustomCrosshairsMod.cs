@@ -14,7 +14,7 @@ using UnityEngine.UI;
 
 namespace CustomCrosshairs
 {
-    [BepInPlugin("com.xarkanoth.customcrosshairs", "Custom Crosshairs", "1.0.17")]
+    [BepInPlugin("com.xarkanoth.customcrosshairs", "Custom Crosshairs", "1.0.19")]
     public class CustomCrosshairsMod : BaseUnityPlugin
     {
         public static ManualLogSource Log { get; private set; }
@@ -456,14 +456,26 @@ namespace CustomCrosshairs
         {
             if (!_isMasterLoggedIn || _config == null || !_config.RangefinderEnabled) return;
             
-            Log.LogInfo("Creating rangefinder text elements...");
+            Log.LogInfo("=== RANGEFINDER CREATION START ===");
+            Log.LogInfo($"Master login: {_isMasterLoggedIn}, Config: {_config != null}, RangefinderEnabled: {_config?.RangefinderEnabled}");
             
             try
             {
                 GameObject crosshairPanel = GameObject.Find(CROSSHAIR_PANEL_PATH);
                 if (crosshairPanel == null)
                 {
+                    Log.LogWarning($"Crosshair panel not found at: {CROSSHAIR_PANEL_PATH}");
                     return;
+                }
+                
+                Log.LogInfo($"Found crosshair panel: {crosshairPanel.name}");
+                
+                // List all children for debugging
+                Log.LogInfo($"Crosshair panel has {crosshairPanel.transform.childCount} children:");
+                for (int i = 0; i < crosshairPanel.transform.childCount; i++)
+                {
+                    Transform child = crosshairPanel.transform.GetChild(i);
+                    Log.LogInfo($"  Child {i}: {child.name} (active: {child.gameObject.activeSelf})");
                 }
                 
                 string[] crosshairNames = {
@@ -476,59 +488,128 @@ namespace CustomCrosshairs
                 
                 foreach (string crosshairName in crosshairNames)
                 {
+                    Log.LogInfo($"Processing crosshair: {crosshairName}");
+                    
                     if (_rangefinderTexts.ContainsKey(crosshairName))
-                        continue; // Already created
+                    {
+                        Log.LogInfo($"  Already exists in dictionary, skipping");
+                        continue;
+                    }
                     
                     Transform crosshairTransform = FindChildByName(crosshairPanel.transform, crosshairName);
-                    if (crosshairTransform == null) continue;
+                    if (crosshairTransform == null)
+                    {
+                        Log.LogWarning($"  Crosshair transform NOT FOUND: {crosshairName}");
+                        continue;
+                    }
+                    Log.LogInfo($"  Found crosshair transform: {crosshairTransform.name}");
                     
+                    // Try to find the image transform - also check for direct Image component
                     Transform imageTransform = FindChildByName(crosshairTransform, CROSSHAIR_IMAGE_NAME);
-                    if (imageTransform == null) continue;
+                    
+                    // If not found by name, try getting the first child with an Image component
+                    if (imageTransform == null)
+                    {
+                        Log.LogInfo($"  '{CROSSHAIR_IMAGE_NAME}' not found, looking for Image component...");
+                        Image img = crosshairTransform.GetComponentInChildren<Image>();
+                        if (img != null)
+                        {
+                            imageTransform = img.transform;
+                            Log.LogInfo($"  Found Image component on: {imageTransform.name}");
+                        }
+                    }
+                    
+                    if (imageTransform == null)
+                    {
+                        Log.LogWarning($"  Image transform NOT FOUND in {crosshairName}");
+                        // List children for debugging
+                        for (int i = 0; i < crosshairTransform.childCount; i++)
+                        {
+                            Transform child = crosshairTransform.GetChild(i);
+                            Log.LogInfo($"    Child: {child.name}");
+                        }
+                        // Create on the crosshair transform itself as fallback
+                        imageTransform = crosshairTransform;
+                        Log.LogInfo($"  Using crosshair transform as fallback parent");
+                    }
                     
                     // Check if text already exists
                     Text existingText = imageTransform.GetComponentInChildren<Text>();
                     if (existingText != null && existingText.name == "RangefinderText")
                     {
                         _rangefinderTexts[crosshairName] = existingText;
+                        Log.LogInfo($"  Found existing RangefinderText, reusing");
                         continue;
                     }
                     
                     // Create new text GameObject
+                    Log.LogInfo($"  Creating new RangefinderText GameObject...");
                     GameObject textObj = new GameObject("RangefinderText");
                     textObj.transform.SetParent(imageTransform, false);
                     
-                    // Position to the TOP-RIGHT of the crosshair image
+                    // Position to the RIGHT of the crosshair (offset from center)
                     RectTransform rectTransform = textObj.AddComponent<RectTransform>();
-                    rectTransform.anchorMin = new Vector2(1f, 1f);  // Top-right anchor
-                    rectTransform.anchorMax = new Vector2(1f, 1f);  // Top-right anchor
-                    rectTransform.pivot = new Vector2(0f, 0.5f);    // Left-center pivot (text extends right)
-                    rectTransform.anchoredPosition = new Vector2(15f, -5f);  // Offset to top-right
-                    rectTransform.sizeDelta = new Vector2(100f, 30f);
+                    rectTransform.anchorMin = new Vector2(0.5f, 0.5f);  // Center anchor
+                    rectTransform.anchorMax = new Vector2(0.5f, 0.5f);  // Center anchor
+                    rectTransform.pivot = new Vector2(0f, 0.5f);        // Left-center pivot
+                    rectTransform.anchoredPosition = new Vector2(50f, 0f);  // 50px to the right of center
+                    rectTransform.sizeDelta = new Vector2(150f, 40f);
                     
                     // Add Text component
                     Text textComponent = textObj.AddComponent<Text>();
-                    textComponent.text = "";
-                    textComponent.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                    textComponent.fontSize = 16;
-                    textComponent.color = Color.yellow;
-                    textComponent.alignment = TextAnchor.MiddleLeft;  // Left-align since it's to the right
+                    textComponent.text = "---m";  // Initial text to verify visibility
+                    
+                    // Try multiple font options
+                    Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+                    if (font == null)
+                    {
+                        font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    }
+                    if (font == null)
+                    {
+                        // Try to find any font in the scene
+                        Text[] allTexts = UnityEngine.Object.FindObjectsOfType<Text>();
+                        if (allTexts.Length > 0 && allTexts[0].font != null)
+                        {
+                            font = allTexts[0].font;
+                            Log.LogInfo($"  Using font from scene: {font.name}");
+                        }
+                    }
+                    
+                    if (font != null)
+                    {
+                        textComponent.font = font;
+                        Log.LogInfo($"  Font loaded: {font.name}");
+                    }
+                    else
+                    {
+                        Log.LogError("  FAILED to load any font!");
+                    }
+                    
+                    textComponent.fontSize = 18;
+                    textComponent.color = new Color(1f, 1f, 0f, 1f);  // Bright yellow
+                    textComponent.alignment = TextAnchor.MiddleLeft;
                     textComponent.horizontalOverflow = HorizontalWrapMode.Overflow;
                     textComponent.verticalOverflow = VerticalWrapMode.Overflow;
+                    textComponent.raycastTarget = false;  // Don't block UI interactions
                     
-                    // Add outline/shadow for visibility
-                    Shadow shadow = textObj.AddComponent<Shadow>();
-                    shadow.effectColor = Color.black;
-                    shadow.effectDistance = new Vector2(1f, -1f);
+                    // Add outline for better visibility
+                    Outline outline = textObj.AddComponent<Outline>();
+                    outline.effectColor = Color.black;
+                    outline.effectDistance = new Vector2(1f, -1f);
                     
                     _rangefinderTexts[crosshairName] = textComponent;
-                    Log.LogInfo($"Created rangefinder text for: {crosshairName}");
+                    Log.LogInfo($"  ✓ Created rangefinder text for: {crosshairName}");
+                    Log.LogInfo($"    Position: {rectTransform.anchoredPosition}, Size: {rectTransform.sizeDelta}");
+                    Log.LogInfo($"    Parent: {imageTransform.name}, Active: {textObj.activeSelf}");
                 }
                 
-                Log.LogInfo($"Rangefinder active with {_rangefinderTexts.Count} text elements");
+                Log.LogInfo($"=== RANGEFINDER CREATION COMPLETE: {_rangefinderTexts.Count} text elements ===");
             }
             catch (Exception ex)
             {
                 Log.LogError($"Error creating rangefinder texts: {ex.Message}");
+                Log.LogError($"Stack trace: {ex.StackTrace}");
             }
         }
         
@@ -563,6 +644,10 @@ namespace CustomCrosshairs
                 if (_mainCamera == null)
                 {
                     _mainCamera = Camera.main;
+                    if (_mainCamera != null)
+                    {
+                        Log.LogInfo($"Found main camera: {_mainCamera.name}");
+                    }
                 }
                 
                 if (_mainCamera == null)
@@ -571,11 +656,28 @@ namespace CustomCrosshairs
                     if (cameraObj != null)
                     {
                         _mainCamera = cameraObj.GetComponent<Camera>();
+                        Log.LogInfo($"Found camera by tag: {_mainCamera?.name}");
                     }
                 }
                 
                 if (_mainCamera == null)
+                {
+                    // Try to find any active camera
+                    Camera[] cameras = Camera.allCameras;
+                    if (cameras.Length > 0)
+                    {
+                        _mainCamera = cameras[0];
+                        Log.LogInfo($"Using first available camera: {_mainCamera.name}");
+                    }
+                }
+                
+                if (_mainCamera == null)
+                {
+                    // Only log occasionally to avoid spam
+                    if (Time.frameCount % 300 == 0)
+                        Log.LogWarning("No camera found for rangefinder");
                     return;
+                }
                 
                 // Calculate layer mask on first use - ignore UI, triggers, and player layers
                 if (_raycastLayerMask == -1)
@@ -608,21 +710,27 @@ namespace CustomCrosshairs
                 {
                     distance = hit.distance;
                 }
-                else
-                {
-                    distance = 0f;
-                }
                 
                 _currentDistance = distance;
                 
-                // Update all rangefinder texts
-                string distanceText = distance > 0f ? $"{distance:F1}m" : "";
+                // Update all rangefinder texts - show distance or "---" if nothing hit
+                string distanceText = distance > 0f ? $"{distance:F0}m" : "---";
+                
+                int activeTexts = 0;
                 foreach (var kvp in _rangefinderTexts)
                 {
                     if (kvp.Value != null)
                     {
                         kvp.Value.text = distanceText;
+                        if (kvp.Value.gameObject.activeInHierarchy)
+                            activeTexts++;
                     }
+                }
+                
+                // Log occasionally to confirm it's running
+                if (Time.frameCount % 600 == 0)
+                {
+                    Log.LogInfo($"Rangefinder update: {distanceText}, active texts: {activeTexts}/{_rangefinderTexts.Count}");
                 }
             }
             catch (Exception ex)
