@@ -14,7 +14,7 @@ using UnityEngine.UI;
 
 namespace CustomCrosshairs
 {
-    [BepInPlugin("com.xarkanoth.customcrosshairs", "Custom Crosshairs", "1.0.19")]
+    [BepInPlugin("com.xarkanoth.customcrosshairs", "Custom Crosshairs", "1.0.23")]
     public class CustomCrosshairsMod : BaseUnityPlugin
     {
         public static ManualLogSource Log { get; private set; }
@@ -136,85 +136,120 @@ namespace CustomCrosshairs
             return config;
         }
         
+        // Track if we've logged the first update
+        private bool _loggedFirstUpdate = false;
+        private int _updateCount = 0;
+        
         void Update()
         {
-            // Check master login periodically
-            if (Time.time - _lastTokenCheck > TOKEN_CHECK_INTERVAL)
+            try
             {
-                _lastTokenCheck = Time.time;
-                bool wasLoggedIn = _isMasterLoggedIn;
-                CheckMasterLoginToken();
+                _updateCount++;
                 
-                if (_isMasterLoggedIn != wasLoggedIn)
+                // Log first update to confirm Update() is running
+                if (!_loggedFirstUpdate && Time.time > 2f)
                 {
-                    Log.LogInfo($"Master login status changed: {_isMasterLoggedIn}");
+                    _loggedFirstUpdate = true;
+                    Log.LogInfo($"[CustomCrosshairs] Update() confirmed running. Master login: {_isMasterLoggedIn}, RangefinderEnabled: {_config?.RangefinderEnabled}");
+                }
+                
+                // Check master login periodically
+                if (Time.time - _lastTokenCheck > TOKEN_CHECK_INTERVAL)
+                {
+                    _lastTokenCheck = Time.time;
+                    bool wasLoggedIn = _isMasterLoggedIn;
+                    CheckMasterLoginToken();
                     
-                    // Update rangefinder visibility based on master login and config
-                    if (_isMasterLoggedIn && _config != null && _config.RangefinderEnabled)
+                    if (_isMasterLoggedIn != wasLoggedIn)
                     {
-                        Log.LogInfo("Rangefinder ENABLED (master login + config enabled)");
-                        // Will be created on next search cycle if crosshair panel exists
-                        _rangefinderCreated = false;
-                    }
-                    else
-                    {
-                        if (!_isMasterLoggedIn)
-                            Log.LogInfo("Rangefinder disabled (no master login)");
-                        else if (_config == null || !_config.RangefinderEnabled)
-                            Log.LogInfo("Rangefinder disabled (config RangefinderEnabled=false)");
-                        RemoveRangefinderTexts();
-                        _rangefinderCreated = false;
-                    }
-                }
-            }
-            
-            // F9 to reload crosshairs
-            if (Input.GetKeyDown(KeyCode.F9))
-            {
-                Log.LogInfo("F9 pressed - Reloading crosshairs...");
-                _crosshairsReplaced = false;
-                _rangefinderCreated = false;
-                _crosshairImages.Clear();
-                RemoveRangefinderTexts();
-                // Clear sprite cache to force reload
-                foreach (var sprite in _loadedSprites.Values)
-                {
-                    if (sprite != null && sprite.texture != null)
-                    {
-                        UnityEngine.Object.Destroy(sprite.texture);
-                    }
-                    if (sprite != null)
-                    {
-                        UnityEngine.Object.Destroy(sprite);
+                        Log.LogInfo($"Master login status changed: {_isMasterLoggedIn}");
+                        
+                        // Update rangefinder visibility based on master login and config
+                        if (_isMasterLoggedIn && _config != null && _config.RangefinderEnabled)
+                        {
+                            Log.LogInfo("Rangefinder ENABLED (master login + config enabled)");
+                            // Will be created on next search cycle if crosshair panel exists
+                            _rangefinderCreated = false;
+                        }
+                        else
+                        {
+                            if (!_isMasterLoggedIn)
+                                Log.LogInfo("Rangefinder disabled (no master login)");
+                            else if (_config == null || !_config.RangefinderEnabled)
+                                Log.LogInfo("Rangefinder disabled (config RangefinderEnabled=false)");
+                            RemoveRangefinderTexts();
+                            _rangefinderCreated = false;
+                        }
                     }
                 }
-                _loadedSprites.Clear();
-                LoadConfig(); // Reload config
-                TryReplaceCrosshairs();
-            }
-            
-            // Search for crosshair UI elements periodically
-            if (Time.time - _lastSearchTime > SEARCH_INTERVAL)
-            {
-                _lastSearchTime = Time.time;
                 
-                // Try to find crosshair panel - it only exists when in-game
-                GameObject crosshairPanel = GameObject.Find(CROSSHAIR_PANEL_PATH);
-                
-                // Log search attempts periodically (every 5 seconds) when panel not found
-                if (crosshairPanel == null && Time.time % 5f < SEARCH_INTERVAL)
+                // F9 to reload crosshairs
+                if (Input.GetKeyDown(KeyCode.F9))
                 {
-                    Log.LogInfo($"Searching for crosshair panel... (in-game: {Time.time > 10f}, master login: {_isMasterLoggedIn}, rangefinder enabled: {_config?.RangefinderEnabled})");
+                    Log.LogInfo("F9 pressed - Reloading crosshairs...");
+                    _crosshairsReplaced = false;
+                    _rangefinderCreated = false;
+                    _crosshairImages.Clear();
+                    RemoveRangefinderTexts();
+                    // Clear sprite cache to force reload
+                    foreach (var sprite in _loadedSprites.Values)
+                    {
+                        if (sprite != null && sprite.texture != null)
+                        {
+                            UnityEngine.Object.Destroy(sprite.texture);
+                        }
+                        if (sprite != null)
+                        {
+                            UnityEngine.Object.Destroy(sprite);
+                        }
+                    }
+                    _loadedSprites.Clear();
+                    LoadConfig(); // Reload config
+                    TryReplaceCrosshairs();
                 }
                 
-                if (crosshairPanel != null)
+                // Search for crosshair UI elements periodically
+                if (Time.time - _lastSearchTime > SEARCH_INTERVAL)
                 {
-                    if (!_loggedSearching)
+                    _lastSearchTime = Time.time;
+                    
+                    // Try to find crosshair panel - it only exists when in-game with a weapon
+                    GameObject crosshairPanel = GameObject.Find(CROSSHAIR_PANEL_PATH);
+                    
+                    // If not found by full path, try just the panel name
+                    if (crosshairPanel == null)
                     {
-                        Log.LogInfo($"Found crosshair panel at: {CROSSHAIR_PANEL_PATH}");
-                        Log.LogInfo($"Master login: {_isMasterLoggedIn}, RangefinderEnabled: {_config?.RangefinderEnabled}");
-                        _loggedSearching = true;
+                        crosshairPanel = GameObject.Find("Crosshair Panel");
                     }
+                    
+                    // Log every 10 seconds to show we're searching
+                    if (_updateCount % 600 == 0)
+                    {
+                        Log.LogInfo($"[Rangefinder] Status: panel={crosshairPanel != null}, master={_isMasterLoggedIn}, enabled={_config?.RangefinderEnabled}, created={_rangefinderCreated}");
+                        
+                        // If panel still not found, try to find any crosshair-related objects
+                        if (crosshairPanel == null)
+                        {
+                            // Look for any object with "Crosshair" in the name
+                            var allObjects = UnityEngine.Object.FindObjectsOfType<GameObject>();
+                            foreach (var obj in allObjects)
+                            {
+                                if (obj.name.Contains("Crosshair") && obj.name.Contains("Panel"))
+                                {
+                                    Log.LogInfo($"  Found potential panel: {GetFullPath(obj.transform)}");
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (crosshairPanel != null)
+                    {
+                        if (!_loggedSearching)
+                        {
+                            Log.LogInfo($"★ FOUND crosshair panel: {GetFullPath(crosshairPanel.transform)}");
+                            Log.LogInfo($"  Master login: {_isMasterLoggedIn}, RangefinderEnabled: {_config?.RangefinderEnabled}");
+                            _loggedSearching = true;
+                        }
                     
                     // Try to replace crosshairs if not done yet
                     if (!_crosshairsReplaced)
@@ -255,10 +290,19 @@ namespace CustomCrosshairs
                 }
             }
             
-            // Update rangefinder if active
-            if (_isMasterLoggedIn && _config != null && _config.RangefinderEnabled && _rangefinderCreated)
+                // Update rangefinder if active
+                if (_isMasterLoggedIn && _config != null && _config.RangefinderEnabled && _rangefinderCreated)
+                {
+                    UpdateRangefinder();
+                }
+            }
+            catch (Exception ex)
             {
-                UpdateRangefinder();
+                // Only log errors occasionally to avoid spam
+                if (_updateCount % 600 == 1)
+                {
+                    Log.LogError($"[CustomCrosshairs] Update() exception: {ex.Message}");
+                }
             }
         }
         
@@ -364,6 +408,21 @@ namespace CustomCrosshairs
             }
             
             return false;
+        }
+        
+        /// <summary>
+        /// Gets the full hierarchy path of a transform
+        /// </summary>
+        private string GetFullPath(Transform t)
+        {
+            if (t == null) return "null";
+            string path = t.name;
+            while (t.parent != null)
+            {
+                t = t.parent;
+                path = t.name + "/" + path;
+            }
+            return path;
         }
         
         /// <summary>
