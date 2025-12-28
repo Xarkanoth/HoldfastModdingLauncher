@@ -59,7 +59,7 @@ namespace HoldfastModdingLauncher
         
         // LauncherCoreMod integrity protection
         private const string LAUNCHER_CORE_MOD_NAME = "LauncherCoreMod.dll";
-        private const string LAUNCHER_CORE_MOD_EXPECTED_HASH = "c76d5ec0dea515f8348d158c9877d66d9c15628d4ed518ad75984e1e7915c73b";
+        private const string LAUNCHER_CORE_MOD_EXPECTED_HASH = "27542b29c998b11fbaefd32d5070c817315145209144dfe75755e6408f7ea77b";
 
         // Dark theme colors (matching InstallerForm)
         private readonly Color DarkBg = Color.FromArgb(18, 18, 18);

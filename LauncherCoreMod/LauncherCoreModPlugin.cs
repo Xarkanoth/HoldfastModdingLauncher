@@ -15,13 +15,74 @@ using UnityEngine.UI;
 namespace LauncherCoreMod
 {
     /// <summary>
+    /// Separate runner MonoBehaviour that lives on its own GameObject.
+    /// This ensures Update() is called even if BepInEx_Manager gets deactivated.
+    /// </summary>
+    public class CoreModRunner : MonoBehaviour
+    {
+        private bool _hasLoggedFirstUpdate = false;
+        private int _updateCount = 0;
+        
+        void Awake()
+        {
+            LauncherCoreModPlugin.Log?.LogInfo("[CoreModRunner] Awake() called - component initializing");
+        }
+        
+        void Start()
+        {
+            LauncherCoreModPlugin.Log?.LogInfo("[CoreModRunner] Start() called - component is active!");
+        }
+        
+        void OnEnable()
+        {
+            LauncherCoreModPlugin.Log?.LogInfo("[CoreModRunner] OnEnable() - runner enabled");
+        }
+        
+        void Update()
+        {
+            _updateCount++;
+            
+            try
+            {
+                if (!_hasLoggedFirstUpdate)
+                {
+                    _hasLoggedFirstUpdate = true;
+                    LauncherCoreModPlugin.Log?.LogInfo($"[CoreModRunner] First Update() confirmed - runner is active! Instance={LauncherCoreModPlugin.Instance != null}");
+                }
+                
+                if (_updateCount == 100)
+                {
+                    LauncherCoreModPlugin.Log?.LogInfo("[CoreModRunner] 100 updates processed");
+                }
+                
+                if (LauncherCoreModPlugin.Instance != null)
+                {
+                    LauncherCoreModPlugin.Instance.DoUpdate();
+                }
+            }
+            catch (Exception ex)
+            {
+                if (_updateCount < 5)
+                {
+                    LauncherCoreModPlugin.Log?.LogError($"[CoreModRunner] Exception in Update: {ex.Message}\n{ex.StackTrace}");
+                }
+            }
+        }
+        
+        void OnApplicationQuit()
+        {
+            LauncherCoreModPlugin.Instance?.DoOnApplicationQuit();
+        }
+    }
+    
+    /// <summary>
     /// Core mod for the Holdfast Modding Launcher
     /// Provides essential features for all launcher users:
     /// - Server browser filtering (hides official servers for non-master users)
     /// - Game event dispatching via IHoldfastSharedMethods (for other mods to subscribe to)
     /// - Master login verification
     /// </summary>
-    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.3")]
+    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.7")]
     public class LauncherCoreModPlugin : BaseUnityPlugin
     {
         public static ManualLogSource Log { get; private set; }
@@ -29,6 +90,7 @@ namespace LauncherCoreMod
         
         private ServerBrowserFilter _serverBrowserFilter;
         private GameEventDispatcher _eventDispatcher;
+        private GameObject _runnerObject;
         
         void Awake()
         {
@@ -36,21 +98,28 @@ namespace LauncherCoreMod
             Log = Logger;
             Log.LogInfo("Launcher Core Mod loaded!");
             
+            // Create a persistent runner GameObject that won't be disabled
+            _runnerObject = new GameObject("LauncherCoreModRunner");
+            UnityEngine.Object.DontDestroyOnLoad(_runnerObject);
+            _runnerObject.AddComponent<CoreModRunner>();
+            Log.LogInfo("[Awake] Created persistent runner GameObject");
+            
             // Initialize server browser filter
             _serverBrowserFilter = new ServerBrowserFilter();
             _serverBrowserFilter.Initialize();
             
             // Initialize game event dispatcher
             _eventDispatcher = new GameEventDispatcher();
+            Log.LogInfo("[Awake] Game event dispatcher initialized");
         }
         
-        void Update()
+        public void DoUpdate()
         {
             _serverBrowserFilter?.OnUpdate();
             _eventDispatcher?.OnUpdate();
         }
         
-        void OnApplicationQuit()
+        public void DoOnApplicationQuit()
         {
             _serverBrowserFilter?.Shutdown();
         }
@@ -167,9 +236,20 @@ namespace LauncherCoreMod
         private bool _registered = false;
         private float _lastRegistrationAttempt = 0f;
         private const float REGISTRATION_RETRY_INTERVAL = 2f;
+        private bool _loggedWaiting = false;
+        private int _updateCallCount = 0;
+        private bool _loggedFirstUpdate = false;
         
         public void OnUpdate()
         {
+            _updateCallCount++;
+            
+            if (!_loggedFirstUpdate)
+            {
+                _loggedFirstUpdate = true;
+                LauncherCoreModPlugin.Log?.LogInfo("[GameEventDispatcher] First OnUpdate() call received!");
+            }
+            
             // Try to register with the game if not yet registered
             if (!_registered && Time.time - _lastRegistrationAttempt > REGISTRATION_RETRY_INTERVAL)
             {
@@ -186,10 +266,17 @@ namespace LauncherCoreMod
                 return;
             }
             
+            if (!_loggedWaiting)
+            {
+                LauncherCoreModPlugin.Log?.LogInfo("[GameEvents] Waiting for ClientModLoaderManager...");
+                _loggedWaiting = true;
+            }
+            
             if (HoldfastEventReceiver.Register())
             {
                 _registered = true;
                 _receiver = HoldfastEventReceiver.Instance;
+                LauncherCoreModPlugin.Log?.LogInfo("[GameEvents] ✓ Successfully registered with game!");
             }
         }
     }
@@ -344,21 +431,23 @@ namespace LauncherCoreMod
             if (client)
             {
                 _localSteamId = steamId;
-                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] Connected to server (SteamId: {steamId})");
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ═══════════════════════════════════════════");
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ★ STEP 1: OnIsClient - Connected!");
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents]   Local Steam ID: {steamId}");
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ═══════════════════════════════════════════");
                 GameEvents.RaiseConnectedToServer(steamId);
             }
             else
             {
-                _localPlayerId = -1;
-                _localSteamId = 0;
-                
                 if (wasConnected)
                 {
-                    LauncherCoreModPlugin.Log?.LogInfo("[GameEvents] Disconnected from server");
+                    LauncherCoreModPlugin.Log?.LogInfo("[GameEvents] Disconnected from server - resetting state");
                     GameEvents.RaiseDisconnectedFromServer();
                 }
                 
-                // Reset registration state for next server
+                // Reset state
+                _localPlayerId = -1;
+                _localSteamId = 0;
                 Instance = null;
                 _lastKnownInstancesList = null;
             }
@@ -366,11 +455,20 @@ namespace LauncherCoreMod
         
         public void OnPlayerJoined(int playerId, ulong steamId, string name, string regimentTag, bool isBot)
         {
-            // Track local player
-            if (steamId == _localSteamId && !isBot)
+            // Log all player joins for debugging
+            LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] OnPlayerJoined: Id={playerId}, SteamId={steamId}, Name={name}, IsBot={isBot}");
+            
+            // Track local player - steamId is 0 for the local player (server doesn't send your own ID)
+            // Or it matches our Steam ID if we captured it from OnIsClient
+            if (!isBot && (steamId == 0 || (_localSteamId > 0 && steamId == _localSteamId)))
             {
                 _localPlayerId = playerId;
-                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] Local player identified: Id={playerId}, Name={name}");
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ═══════════════════════════════════════════");
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ★ STEP 2: Local player identified!");
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents]   Player ID: {playerId}");
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents]   Name: {name}");
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents]   Matched via: {(steamId == 0 ? "SteamId=0" : "SteamId match")}");
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ═══════════════════════════════════════════");
             }
             
             GameEvents.RaisePlayerJoined(playerId, steamId, name, regimentTag, isBot);
@@ -383,12 +481,31 @@ namespace LauncherCoreMod
         
         public void OnPlayerSpawned(int playerId, int spawnSectionId, FactionCountry playerFaction, PlayerClass playerClass, int uniformId, GameObject playerObject)
         {
+            // Log spawn for debugging
+            LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] OnPlayerSpawned: Id={playerId}, Class={playerClass}, HasObject={playerObject != null}");
+            
             GameEvents.RaisePlayerSpawned(playerId, spawnSectionId, playerFaction, playerClass, uniformId, playerObject);
             
-            // Also raise local player spawned event if this is our player
-            if (playerId == _localPlayerId)
+            // Check if this is our local player
+            bool isLocalPlayer = playerId == _localPlayerId;
+            
+            // Fallback: If we never identified local player, use first spawn with playerObject
+            if (!isLocalPlayer && _localPlayerId == -1 && playerObject != null)
             {
-                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] Local player spawned: Class={playerClass}, Faction={playerFaction}");
+                _localPlayerId = playerId;
+                isLocalPlayer = true;
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ★ Local player assumed from first spawn with object: Id={playerId}");
+            }
+            
+            if (isLocalPlayer)
+            {
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ═══════════════════════════════════════════");
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ★ STEP 3: Local player spawned!");
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents]   Player ID: {playerId}");
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents]   Class: {playerClass}");
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents]   Faction: {playerFaction}");
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents]   → Triggering rangefinder setup!");
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ═══════════════════════════════════════════");
                 GameEvents.RaiseLocalPlayerSpawned(playerId, playerFaction, playerClass);
             }
         }
