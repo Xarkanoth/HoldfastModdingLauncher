@@ -14,7 +14,7 @@ using UnityEngine.UI;
 
 namespace CustomCrosshairs
 {
-    [BepInPlugin("com.xarkanoth.customcrosshairs", "Custom Crosshairs", "1.0.10")]
+    [BepInPlugin("com.xarkanoth.customcrosshairs", "Custom Crosshairs", "1.0.13")]
     public class CustomCrosshairsMod : BaseUnityPlugin
     {
         public static ManualLogSource Log { get; private set; }
@@ -54,8 +54,10 @@ namespace CustomCrosshairs
         
         // Tracking
         private bool _crosshairsReplaced = false;
+        private bool _rangefinderCreated = false;
         private float _lastSearchTime = 0f;
-        private const float SEARCH_INTERVAL = 1f;
+        private const float SEARCH_INTERVAL = 0.5f;  // Search every 0.5 seconds until found
+        private bool _loggedSearching = false;
         
         void Awake()
         {
@@ -92,7 +94,7 @@ namespace CustomCrosshairs
                 {
                     string json = File.ReadAllText(_configPath);
                     _config = ParseConfig(json);
-                    Log.LogInfo($"Loaded config: CrosshairId={_config?.SelectedCrosshairId}, Enabled={_config?.Enabled}");
+                    Log.LogInfo($"Loaded config: CrosshairId={_config?.SelectedCrosshairId}, Enabled={_config?.Enabled}, RangefinderEnabled={_config?.RangefinderEnabled}");
                 }
                 else
                 {
@@ -143,17 +145,23 @@ namespace CustomCrosshairs
                 
                 if (_isMasterLoggedIn != wasLoggedIn)
                 {
+                    Log.LogInfo($"Master login status changed: {_isMasterLoggedIn}");
+                    
                     // Update rangefinder visibility based on master login and config
                     if (_isMasterLoggedIn && _config != null && _config.RangefinderEnabled)
                     {
-                        if (_crosshairsReplaced)
-                        {
-                            CreateRangefinderTexts();
-                        }
+                        Log.LogInfo("Rangefinder ENABLED (master login + config enabled)");
+                        // Will be created on next search cycle if crosshair panel exists
+                        _rangefinderCreated = false;
                     }
                     else
                     {
+                        if (!_isMasterLoggedIn)
+                            Log.LogInfo("Rangefinder disabled (no master login)");
+                        else if (_config == null || !_config.RangefinderEnabled)
+                            Log.LogInfo("Rangefinder disabled (config RangefinderEnabled=false)");
                         RemoveRangefinderTexts();
+                        _rangefinderCreated = false;
                     }
                 }
             }
@@ -163,6 +171,7 @@ namespace CustomCrosshairs
             {
                 Log.LogInfo("F9 pressed - Reloading crosshairs...");
                 _crosshairsReplaced = false;
+                _rangefinderCreated = false;
                 _crosshairImages.Clear();
                 RemoveRangefinderTexts();
                 // Clear sprite cache to force reload
@@ -187,26 +196,48 @@ namespace CustomCrosshairs
             {
                 _lastSearchTime = Time.time;
                 
-                if (!_crosshairsReplaced)
+                // Try to find crosshair panel - it only exists when in-game
+                GameObject crosshairPanel = GameObject.Find(CROSSHAIR_PANEL_PATH);
+                
+                if (crosshairPanel != null)
                 {
-                    TryReplaceCrosshairs();
+                    if (!_loggedSearching)
+                    {
+                        Log.LogInfo($"Found crosshair panel at: {CROSSHAIR_PANEL_PATH}");
+                        _loggedSearching = true;
+                    }
+                    
+                    // Try to replace crosshairs if not done yet
+                    if (!_crosshairsReplaced)
+                    {
+                        TryReplaceCrosshairs();
+                    }
+                    
+                    // Create rangefinder if enabled and not yet created
+                    if (_isMasterLoggedIn && _config != null && _config.RangefinderEnabled && !_rangefinderCreated)
+                    {
+                        CreateRangefinderTexts();
+                        _rangefinderCreated = true;
+                    }
+                }
+                else
+                {
+                    // Panel not found - we're probably in menu, reset state
+                    if (_crosshairsReplaced || _rangefinderCreated)
+                    {
+                        Log.LogInfo("Crosshair panel lost (returned to menu) - resetting state");
+                        _crosshairsReplaced = false;
+                        _rangefinderCreated = false;
+                        _loggedSearching = false;
+                        _crosshairImages.Clear();
+                        _rangefinderTexts.Clear();
+                    }
                 }
             }
             
-            // Ensure rangefinder texts are created if enabled (works even without custom crosshairs)
-            if (_isMasterLoggedIn && _config != null && _config.RangefinderEnabled)
+            // Update rangefinder if active
+            if (_isMasterLoggedIn && _config != null && _config.RangefinderEnabled && _rangefinderCreated)
             {
-                // Try to find crosshairs even if we haven't replaced them yet
-                if (_rangefinderTexts.Count == 0)
-                {
-                    GameObject crosshairPanel = GameObject.Find(CROSSHAIR_PANEL_PATH);
-                    if (crosshairPanel != null)
-                    {
-                        CreateRangefinderTexts();
-                    }
-                }
-                
-                // Update rangefinder
                 UpdateRangefinder();
             }
         }
@@ -405,6 +436,8 @@ namespace CustomCrosshairs
         {
             if (!_isMasterLoggedIn || _config == null || !_config.RangefinderEnabled) return;
             
+            Log.LogInfo("Creating rangefinder text elements...");
+            
             try
             {
                 GameObject crosshairPanel = GameObject.Find(CROSSHAIR_PANEL_PATH);
@@ -444,21 +477,21 @@ namespace CustomCrosshairs
                     GameObject textObj = new GameObject("RangefinderText");
                     textObj.transform.SetParent(imageTransform, false);
                     
-                    // Position below the crosshair image
+                    // Position to the TOP-RIGHT of the crosshair image
                     RectTransform rectTransform = textObj.AddComponent<RectTransform>();
-                    rectTransform.anchorMin = new Vector2(0.5f, 0f);
-                    rectTransform.anchorMax = new Vector2(0.5f, 0f);
-                    rectTransform.pivot = new Vector2(0.5f, 1f);
-                    rectTransform.anchoredPosition = new Vector2(0f, -50f);
-                    rectTransform.sizeDelta = new Vector2(200f, 30f);
+                    rectTransform.anchorMin = new Vector2(1f, 1f);  // Top-right anchor
+                    rectTransform.anchorMax = new Vector2(1f, 1f);  // Top-right anchor
+                    rectTransform.pivot = new Vector2(0f, 0.5f);    // Left-center pivot (text extends right)
+                    rectTransform.anchoredPosition = new Vector2(15f, -5f);  // Offset to top-right
+                    rectTransform.sizeDelta = new Vector2(100f, 30f);
                     
                     // Add Text component
                     Text textComponent = textObj.AddComponent<Text>();
-                    textComponent.text = "0m";
+                    textComponent.text = "";
                     textComponent.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                    textComponent.fontSize = 18;
+                    textComponent.fontSize = 16;
                     textComponent.color = Color.yellow;
-                    textComponent.alignment = TextAnchor.MiddleCenter;
+                    textComponent.alignment = TextAnchor.MiddleLeft;  // Left-align since it's to the right
                     textComponent.horizontalOverflow = HorizontalWrapMode.Overflow;
                     textComponent.verticalOverflow = VerticalWrapMode.Overflow;
                     
@@ -468,7 +501,10 @@ namespace CustomCrosshairs
                     shadow.effectDistance = new Vector2(1f, -1f);
                     
                     _rangefinderTexts[crosshairName] = textComponent;
+                    Log.LogInfo($"Created rangefinder text for: {crosshairName}");
                 }
+                
+                Log.LogInfo($"Rangefinder active with {_rangefinderTexts.Count} text elements");
             }
             catch (Exception ex)
             {
