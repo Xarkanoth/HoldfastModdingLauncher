@@ -7,9 +7,9 @@
     <OutputPath>..\</OutputPath>
     <AssemblyName>CustomCrosshairs</AssemblyName>
     <RootNamespace>CustomCrosshairs</RootNamespace>
-    <Version>1.0.26</Version>
-    <AssemblyVersion>1.0.26.0</AssemblyVersion>
-    <FileVersion>1.0.26.0</FileVersion>
+    <Version>1.0.28</Version>
+    <AssemblyVersion>1.0.28.0</AssemblyVersion>
+    <FileVersion>1.0.28.0</FileVersion>
   </PropertyGroup>
   
   <ItemGroup>

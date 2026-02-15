@@ -1,107 +1,68 @@
-﻿{
-    "schemaVersion":  "1.1",
-    "lastUpdated":  "2025-12-28T20:00:33Z",
-    "registryUrl":  "https://raw.githubusercontent.com/Xarkanoth/HoldfastModdingLauncher/main/mod-registry.json",
-    "modsBaseUrl":  "https://raw.githubusercontent.com/Xarkanoth/HoldfastMods/main",
-    "releasesBaseUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download",
-    "mods":  [
-                 {
-                     "id":  "AdvancedAdminUI",
-                     "name":  "Advanced Admin UI",
-                     "description":  "A comprehensive client-side admin tool suite for Holdfast: Nations at War. Features include Cavalry Visualization, Rambo Indicator, AFK Indicator, Minimap, and Admin UI.",
-                     "author":  "Xarkanoth",
-                     "version":  "1.0.57",
-                     "minLauncherVersion":  "1.0.80",
-                     "requirements":  "Requires RC login to use.",
-                     "category":  "Admin Tools",
-                     "tags":  [
-                                  "admin",
-                                  "minimap",
-                                  "visualization",
-                                  "cavalry",
-                                  "afk"
-                              ],
-                     "repositoryUrl":  "https://github.com/Xarkanoth/HoldfastMods",
-                     "infoUrl":  "https://raw.githubusercontent.com/Xarkanoth/HoldfastMods/main/AdvancedAdminUI/mod-info.json",
-                     "releaseUrl":  "https://api.github.com/repos/Xarkanoth/HoldfastMods/releases/tags/AdvancedAdminUI-v1.0.57",
-                     "downloadUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download/AdvancedAdminUI-v1.0.57/AdvancedAdminUI.dll",
-                     "dllName":  "AdvancedAdminUI.dll",
-                     "iconUrl":  "",
-                     "screenshots":  [
-
-                                     ],
-                     "changelog":  "See GitHub releases for full changelog.",
-                     "dependencies":  [
-
-                                      ],
-                     "isEnabled":  true
-                 },
-                 {
-                     "id":  "CustomSplashScreen",
-                     "name":  "Custom Splash Screen",
-                     "description":  "Replace the Holdfast splash screen with custom videos! Select from pre-defined splash videos or use your own custom video file. Press F8 in-game to configure.",
-                     "author":  "Xarkanoth",
-                     "version":  "1.0.13",
-                     "minLauncherVersion":  "1.0.142",
-                     "requirements":  "",
-                     "category":  "Visual",
-                     "tags":  [
-                                  "splash",
-                                  "video",
-                                  "customization",
-                                  "intro"
-                              ],
-                     "repositoryUrl":  "https://github.com/Xarkanoth/HoldfastMods",
-                     "infoUrl":  "",
-                     "releaseUrl":  "https://api.github.com/repos/Xarkanoth/HoldfastMods/releases/tags/CustomSplashScreen-v1.0.13",
-                     "downloadUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download/CustomSplashScreen-v1.0.13/CustomSplashScreen.dll",
-                     "dllName":  "CustomSplashScreen.dll",
-                     "iconUrl":  "",
-                     "screenshots":  [
-
-                                     ],
-                     "changelog":  "v1.0.0 - Initial release with settings UI and video selection.",
-                     "dependencies":  [
-
-                                      ],
-                     "isEnabled":  true
-                 },
-                 {
-                     "id":  "CustomCrosshairs",
-                     "name":  "Custom Crosshairs",
-                     "description":  "Replace weapon crosshairs with custom images! Configure via the launcher settings.",
-                     "author":  "Xarkanoth",
-                     "version":  "1.0.28",
-                     "minLauncherVersion":  "1.0.80",
-                     "requirements":  "",
-                     "category":  "Visual",
-                     "tags":  [
-                                  "crosshair",
-                                  "customization",
-                                  "visual",
-                                  "weapon"
-                              ],
-                     "repositoryUrl":  "https://github.com/Xarkanoth/HoldfastMods",
-                     "infoUrl":  "",
-                    "releaseUrl":  "https://api.github.com/repos/Xarkanoth/HoldfastMods/releases/tags/CustomCrosshairs-v1.0.28",
-                    "downloadUrl":  "https://github.com/Xarkanoth/HoldfastMods/releases/download/CustomCrosshairs-v1.0.28/CustomCrosshairs.dll",
-                     "dllName":  "CustomCrosshairs.dll",
-                     "iconUrl":  "",
-                     "screenshots":  [
-
-                                     ],
-                     "changelog":  "v1.0.6 - Custom crosshair replacement with settings UI.",
-                     "dependencies":  [
-
-                                      ],
-                     "isEnabled":  true
-                 }
-             ],
-    "categories":  [
-                       "Admin Tools",
-                       "Gameplay",
-                       "Visual",
-                       "Audio",
-                       "Utilities"
-                   ]
+{
+    "schemaVersion": "2.0",
+    "lastUpdated": "2026-02-15T00:00:00Z",
+    "registryUrl": "https://raw.githubusercontent.com/Xarkanoth/HoldfastModdingLauncher/main/mod-registry.json",
+    "modsBaseUrl": "https://raw.githubusercontent.com/Xarkanoth/HoldfastMods/main",
+    "releasesBaseUrl": "https://github.com/Xarkanoth/HoldfastMods/releases/download",
+    "releasesApiUrl": "https://api.github.com/repos/Xarkanoth/HoldfastMods/releases",
+    "mods": [
+        {
+            "id": "AdvancedAdminUI",
+            "name": "Advanced Admin UI",
+            "description": "A comprehensive client-side admin tool suite for Holdfast: Nations at War. Features include Cavalry Visualization, Rambo Indicator, AFK Indicator, Minimap, and Admin UI.",
+            "author": "Xarkanoth",
+            "minLauncherVersion": "1.0.80",
+            "requirements": "Requires RC login to use.",
+            "category": "Admin Tools",
+            "tags": ["admin", "minimap", "visualization", "cavalry", "afk"],
+            "repositoryUrl": "https://github.com/Xarkanoth/HoldfastMods",
+            "dllName": "AdvancedAdminUI.dll",
+            "iconUrl": "",
+            "screenshots": [],
+            "changelog": "See GitHub releases for full changelog.",
+            "dependencies": [],
+            "isEnabled": true
+        },
+        {
+            "id": "CustomSplashScreen",
+            "name": "Custom Splash Screen",
+            "description": "Replace the Holdfast splash screen with custom videos! Select from pre-defined splash videos or use your own custom video file. Press F8 in-game to configure.",
+            "author": "Xarkanoth",
+            "minLauncherVersion": "1.0.142",
+            "requirements": "",
+            "category": "Visual",
+            "tags": ["splash", "video", "customization", "intro"],
+            "repositoryUrl": "https://github.com/Xarkanoth/HoldfastMods",
+            "dllName": "CustomSplashScreen.dll",
+            "iconUrl": "",
+            "screenshots": [],
+            "changelog": "v1.0.0 - Initial release with settings UI and video selection.",
+            "dependencies": [],
+            "isEnabled": true
+        },
+        {
+            "id": "CustomCrosshairs",
+            "name": "Custom Crosshairs",
+            "description": "Replace weapon crosshairs with custom images! Configure via the launcher settings.",
+            "author": "Xarkanoth",
+            "minLauncherVersion": "1.0.80",
+            "requirements": "",
+            "category": "Visual",
+            "tags": ["crosshair", "customization", "visual", "weapon"],
+            "repositoryUrl": "https://github.com/Xarkanoth/HoldfastMods",
+            "dllName": "CustomCrosshairs.dll",
+            "iconUrl": "",
+            "screenshots": [],
+            "changelog": "v1.0.6 - Custom crosshair replacement with settings UI.",
+            "dependencies": [],
+            "isEnabled": true
+        }
+    ],
+    "categories": [
+        "Admin Tools",
+        "Gameplay",
+        "Visual",
+        "Audio",
+        "Utilities"
+    ]
 }

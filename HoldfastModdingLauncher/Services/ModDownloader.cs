@@ -23,6 +23,9 @@ namespace HoldfastModdingLauncher.Services
         [JsonPropertyName("registryUrl")]
         public string RegistryUrl { get; set; } = string.Empty;
 
+        [JsonPropertyName("releasesApiUrl")]
+        public string ReleasesApiUrl { get; set; } = string.Empty;
+
         [JsonPropertyName("mods")]
         public List<RemoteModInfo> Mods { get; set; } = new();
 
@@ -242,6 +245,9 @@ namespace HoldfastModdingLauncher.Services
                     {
                         Logger.LogInfo($"Parsed registry: {registry.Mods.Count} mod(s) found");
                         
+                        // Resolve latest versions dynamically from GitHub Releases API
+                        await ResolveLatestVersionsAsync(registry);
+                        
                         // Check installed status for each mod
                         await UpdateInstalledStatusAsync(registry);
                         
@@ -309,129 +315,261 @@ namespace HoldfastModdingLauncher.Services
         }
 
         /// <summary>
-        /// Gets the download URL for a mod from GitHub releases.
+        /// Resolves the latest version and download URL for each mod by querying the GitHub Releases API.
+        /// This eliminates the need to hardcode version numbers and download URLs in mod-registry.json.
+        /// </summary>
+        private async Task ResolveLatestVersionsAsync(ModRegistry registry)
+        {
+            string releasesApiUrl = registry.ReleasesApiUrl;
+
+            // If no API URL in registry, try to derive from the first mod's repository URL
+            if (string.IsNullOrEmpty(releasesApiUrl))
+            {
+                var firstMod = registry.Mods.FirstOrDefault(m => !string.IsNullOrEmpty(m.RepositoryUrl));
+                if (firstMod != null)
+                {
+                    releasesApiUrl = firstMod.RepositoryUrl
+                        .Replace("https://github.com/", "https://api.github.com/repos/") + "/releases";
+                    Logger.LogInfo($"Derived releases API URL from repository: {releasesApiUrl}");
+                }
+                else
+                {
+                    Logger.LogWarning("No releases API URL configured and no repository URL found on any mod");
+                    return;
+                }
+            }
+
+            try
+            {
+                Logger.LogInfo($"Resolving mod versions from GitHub Releases API: {releasesApiUrl}");
+
+                // Track which mods still need resolution
+                var unresolvedMods = new HashSet<string>(
+                    registry.Mods.Select(m => m.Id),
+                    StringComparer.OrdinalIgnoreCase);
+
+                int page = 1;
+                int maxPages = 3; // Safety limit: 3 pages × 100 = 300 releases max
+
+                while (unresolvedMods.Count > 0 && page <= maxPages)
+                {
+                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+                    client.DefaultRequestHeaders.Add("User-Agent", "HoldfastModdingLauncher");
+                    client.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3+json");
+
+                    string url = $"{releasesApiUrl}?per_page=100&page={page}";
+                    string json = await client.GetStringAsync(url);
+                    using var doc = JsonDocument.Parse(json);
+
+                    var releases = doc.RootElement;
+                    if (releases.GetArrayLength() == 0)
+                        break; // No more releases
+
+                    foreach (var release in releases.EnumerateArray())
+                    {
+                        // Skip drafts and prereleases
+                        if (release.TryGetProperty("draft", out var draftEl) && draftEl.GetBoolean())
+                            continue;
+                        if (release.TryGetProperty("prerelease", out var preEl) && preEl.GetBoolean())
+                            continue;
+
+                        if (!release.TryGetProperty("tag_name", out var tagElement))
+                            continue;
+
+                        string tag = tagElement.GetString() ?? string.Empty;
+
+                        // Parse tag format: "ModId-vVersion" (e.g., "AdvancedAdminUI-v1.0.57")
+                        int vIndex = tag.LastIndexOf("-v");
+                        if (vIndex < 0) continue;
+
+                        string modId = tag.Substring(0, vIndex);
+                        string version = tag.Substring(vIndex + 2); // Skip "-v"
+
+                        // Only process if this mod is in our registry and not yet resolved
+                        if (!unresolvedMods.Contains(modId))
+                            continue;
+
+                        var mod = registry.Mods.FirstOrDefault(m =>
+                            m.Id.Equals(modId, StringComparison.OrdinalIgnoreCase));
+                        if (mod == null) continue;
+
+                        // Get HTML release URL
+                        string releaseHtmlUrl = string.Empty;
+                        if (release.TryGetProperty("html_url", out var htmlUrlEl))
+                        {
+                            releaseHtmlUrl = htmlUrlEl.GetString() ?? string.Empty;
+                        }
+
+                        // Find download URL from release assets
+                        string downloadUrl = string.Empty;
+                        if (release.TryGetProperty("assets", out var assetsElement))
+                        {
+                            foreach (var asset in assetsElement.EnumerateArray())
+                            {
+                                if (!asset.TryGetProperty("name", out var nameElement))
+                                    continue;
+
+                                string assetName = nameElement.GetString() ?? string.Empty;
+                                if (assetName.Equals(mod.DllName, StringComparison.OrdinalIgnoreCase) ||
+                                    assetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    if (asset.TryGetProperty("browser_download_url", out var dlElement))
+                                    {
+                                        downloadUrl = dlElement.GetString() ?? string.Empty;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(version) && !string.IsNullOrEmpty(downloadUrl))
+                        {
+                            mod.Version = version;
+                            mod.DownloadUrl = downloadUrl;
+                            mod.ReleaseUrl = releaseHtmlUrl;
+                            unresolvedMods.Remove(modId);
+                            Logger.LogInfo($"Resolved {mod.Id}: v{version}");
+                        }
+                    }
+
+                    page++;
+                }
+
+                if (unresolvedMods.Count > 0)
+                {
+                    foreach (var modId in unresolvedMods)
+                    {
+                        Logger.LogWarning($"No GitHub release found for mod: {modId}");
+                    }
+                }
+
+                Logger.LogInfo($"Version resolution complete: {registry.Mods.Count - unresolvedMods.Count}/{registry.Mods.Count} mods resolved");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Failed to resolve mod versions from GitHub Releases API: {ex.Message}");
+                // Non-fatal: mods will show without version info but the browser will still work
+            }
+        }
+
+        /// <summary>
+        /// Gets the download URL for a mod. Uses the pre-resolved URL from batch resolution,
+        /// with an individual fallback query to the GitHub Releases API if needed.
         /// </summary>
         private async Task<string?> GetDownloadUrlAsync(RemoteModInfo mod)
         {
-            // If direct download URL is provided, use it
+            // If already resolved (from batch resolution), use it directly
             if (!string.IsNullOrEmpty(mod.DownloadUrl))
             {
                 return mod.DownloadUrl;
             }
 
-            // Otherwise, fetch from GitHub releases API
-            if (string.IsNullOrEmpty(mod.ReleaseUrl))
+            // Fallback: try to resolve individually from GitHub Releases API
+            Logger.LogInfo($"Download URL not pre-resolved for {mod.Name}, attempting individual lookup...");
+
+            string repoUrl = mod.RepositoryUrl;
+            if (string.IsNullOrEmpty(repoUrl))
             {
-                Logger.LogWarning($"No release URL configured for mod: {mod.Name}");
+                Logger.LogWarning($"No repository URL configured for mod: {mod.Name}");
                 return null;
             }
 
             try
             {
-                string response = await _httpClient.GetStringAsync(mod.ReleaseUrl);
-                using var doc = JsonDocument.Parse(response);
-                var root = doc.RootElement;
+                // Convert GitHub URL to API URL: https://github.com/owner/repo -> https://api.github.com/repos/owner/repo/releases
+                string apiUrl = repoUrl.Replace("https://github.com/", "https://api.github.com/repos/") + "/releases";
+                string tagPrefix = $"{mod.Id}-v";
 
-                // Look for assets in the release
-                if (root.TryGetProperty("assets", out var assetsElement))
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+                client.DefaultRequestHeaders.Add("User-Agent", "HoldfastModdingLauncher");
+                client.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3+json");
+
+                string json = await client.GetStringAsync($"{apiUrl}?per_page=50");
+                using var doc = JsonDocument.Parse(json);
+
+                foreach (var release in doc.RootElement.EnumerateArray())
                 {
-                    foreach (var asset in assetsElement.EnumerateArray())
+                    // Skip drafts and prereleases
+                    if (release.TryGetProperty("draft", out var draftEl) && draftEl.GetBoolean())
+                        continue;
+                    if (release.TryGetProperty("prerelease", out var preEl) && preEl.GetBoolean())
+                        continue;
+
+                    if (!release.TryGetProperty("tag_name", out var tagElement))
+                        continue;
+
+                    string tag = tagElement.GetString() ?? string.Empty;
+                    if (!tag.StartsWith(tagPrefix, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    // Found the latest release for this mod
+                    string version = tag.Substring(tagPrefix.Length);
+                    mod.Version = version;
+
+                    // Find the DLL or ZIP asset
+                    if (release.TryGetProperty("assets", out var assetsElement))
                     {
-                        if (asset.TryGetProperty("name", out var nameElement))
+                        foreach (var asset in assetsElement.EnumerateArray())
                         {
+                            if (!asset.TryGetProperty("name", out var nameElement))
+                                continue;
+
                             string assetName = nameElement.GetString() ?? string.Empty;
-                            
-                            // Look for the mod DLL or a zip containing it
                             if (assetName.Equals(mod.DllName, StringComparison.OrdinalIgnoreCase) ||
                                 assetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                             {
-                                if (asset.TryGetProperty("browser_download_url", out var downloadElement))
+                                if (asset.TryGetProperty("browser_download_url", out var dlElement))
                                 {
-                                    return downloadElement.GetString();
+                                    string downloadUrl = dlElement.GetString() ?? string.Empty;
+                                    mod.DownloadUrl = downloadUrl;
+                                    Logger.LogInfo($"Individually resolved {mod.Name}: v{version}");
+                                    return downloadUrl;
                                 }
                             }
                         }
                     }
+
+                    // Found the release but no matching asset
+                    Logger.LogWarning($"Release found for {mod.Name} (v{version}) but no matching asset ({mod.DllName})");
+                    return null;
                 }
 
-                Logger.LogWarning($"No downloadable asset found for mod: {mod.Name}");
+                Logger.LogWarning($"No GitHub release found matching tag prefix '{tagPrefix}' for mod: {mod.Name}");
                 return null;
             }
             catch (HttpRequestException httpEx)
             {
                 string friendlyError = GetUserFriendlyHttpError(httpEx);
-                Logger.LogError($"Failed to get download URL for {mod.Name}: {friendlyError}");
+                Logger.LogError($"Failed to resolve download URL for {mod.Name}: {friendlyError}");
                 return null;
             }
             catch (Exception ex)
             {
-                Logger.LogError($"Failed to get download URL for {mod.Name}: {ex.Message}");
+                Logger.LogError($"Failed to resolve download URL for {mod.Name}: {ex.Message}");
                 return null;
             }
         }
 
         /// <summary>
-        /// Gets the latest version info from GitHub releases.
+        /// Gets the latest version info for a mod. Returns pre-resolved data if available,
+        /// otherwise attempts individual resolution from GitHub Releases API.
         /// </summary>
         public async Task<(string Version, string DownloadUrl)?> GetLatestReleaseInfoAsync(RemoteModInfo mod)
         {
-            if (string.IsNullOrEmpty(mod.ReleaseUrl))
-                return null;
-
-            try
+            // If already resolved, return immediately
+            if (!string.IsNullOrEmpty(mod.Version) && !string.IsNullOrEmpty(mod.DownloadUrl))
             {
-                string response = await _httpClient.GetStringAsync(mod.ReleaseUrl);
-                using var doc = JsonDocument.Parse(response);
-                var root = doc.RootElement;
-
-                string version = string.Empty;
-                string downloadUrl = string.Empty;
-
-                // Get version from tag
-                if (root.TryGetProperty("tag_name", out var tagElement))
-                {
-                    version = tagElement.GetString()?.TrimStart('v') ?? string.Empty;
-                }
-
-                // Get download URL from assets
-                if (root.TryGetProperty("assets", out var assetsElement))
-                {
-                    foreach (var asset in assetsElement.EnumerateArray())
-                    {
-                        if (asset.TryGetProperty("name", out var nameElement))
-                        {
-                            string assetName = nameElement.GetString() ?? string.Empty;
-                            if (assetName.Equals(mod.DllName, StringComparison.OrdinalIgnoreCase) ||
-                                assetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-                            {
-                                if (asset.TryGetProperty("browser_download_url", out var downloadElement))
-                                {
-                                    downloadUrl = downloadElement.GetString() ?? string.Empty;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (!string.IsNullOrEmpty(version) && !string.IsNullOrEmpty(downloadUrl))
-                {
-                    return (version, downloadUrl);
-                }
-
-                return null;
+                return (mod.Version, mod.DownloadUrl);
             }
-            catch (HttpRequestException httpEx)
+
+            // Try to resolve individually
+            string? downloadUrl = await GetDownloadUrlAsync(mod);
+            if (!string.IsNullOrEmpty(downloadUrl) && !string.IsNullOrEmpty(mod.Version))
             {
-                string friendlyError = GetUserFriendlyHttpError(httpEx);
-                Logger.LogError($"Failed to get release info for {mod.Name}: {friendlyError}");
-                return null;
+                return (mod.Version, downloadUrl);
             }
-            catch (Exception ex)
-            {
-                Logger.LogError($"Failed to get release info for {mod.Name}: {ex.Message}");
-                return null;
-            }
+
+            return null;
         }
 
         /// <summary>

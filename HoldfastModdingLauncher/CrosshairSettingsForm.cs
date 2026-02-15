@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using HoldfastModdingLauncher.Core;
 
 namespace HoldfastModdingLauncher
 {
@@ -32,7 +33,7 @@ namespace HoldfastModdingLauncher
         private string _holdfastPath;
         private List<CrosshairOption> _crosshairs;
         private static readonly HttpClient _httpClient;
-        private readonly PreferencesManager _preferencesManager;
+        private readonly Core.PreferencesManager _preferencesManager;
         
         static CrosshairSettingsForm()
         {
@@ -45,7 +46,7 @@ namespace HoldfastModdingLauncher
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "HoldfastModdingLauncher");
         }
 
-        public CrosshairSettingsForm(string holdfastPath, PreferencesManager preferencesManager)
+        public CrosshairSettingsForm(string holdfastPath, Core.PreferencesManager preferencesManager)
         {
             _holdfastPath = holdfastPath;
             _preferencesManager = preferencesManager;
@@ -483,7 +484,7 @@ namespace HoldfastModdingLauncher
             }
         }
 
-        public static void ShowSettings(string holdfastPath, PreferencesManager preferencesManager)
+        public static void ShowSettings(string holdfastPath, Core.PreferencesManager preferencesManager)
         {
             using (var form = new CrosshairSettingsForm(holdfastPath, preferencesManager))
             {

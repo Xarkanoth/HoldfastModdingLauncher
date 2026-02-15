@@ -11,7 +11,7 @@ using UnityEngine.UI;
 
 namespace CustomCrosshairs
 {
-    [BepInPlugin("com.xarkanoth.customcrosshairs", "Custom Crosshairs", "1.0.26")]
+    [BepInPlugin("com.xarkanoth.customcrosshairs", "Custom Crosshairs", "1.0.28")]
     [BepInDependency("com.xarkanoth.launchercoremod", BepInDependency.DependencyFlags.HardDependency)]
     public class CustomCrosshairsMod : BaseUnityPlugin
     {
@@ -137,6 +137,18 @@ namespace CustomCrosshairs
                     spawnedEvent.AddEventHandler(null, handler);
                 }
                 
+                // Also subscribe to general OnPlayerSpawned as fallback
+                var generalSpawnedEvent = gameEventsType.GetEvent("OnPlayerSpawned");
+                if (generalSpawnedEvent != null)
+                {
+                    var handler = Delegate.CreateDelegate(
+                        generalSpawnedEvent.EventHandlerType,
+                        this,
+                        typeof(CustomCrosshairsMod).GetMethod(nameof(HandlePlayerSpawned), 
+                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance));
+                    generalSpawnedEvent.AddEventHandler(null, handler);
+                }
+                
                 // Check master login status
                 var masterLoginType = coreModAssembly.GetType("LauncherCoreMod.MasterLoginManager");
                 if (masterLoginType != null)
@@ -160,7 +172,10 @@ namespace CustomCrosshairs
         // Event handlers
         private void HandleConnectedToServer(ulong steamId)
         {
-            Log.LogInfo($"[CustomCrosshairs] Connected to server (Steam: {steamId})");
+            Log.LogInfo($"[CustomCrosshairs] ═══════════════════════════════════════════");
+            Log.LogInfo($"[CustomCrosshairs] ★ EVENT: Connected to server!");
+            Log.LogInfo($"[CustomCrosshairs]   Steam ID: {steamId}");
+            Log.LogInfo($"[CustomCrosshairs] ═══════════════════════════════════════════");
             _isInGame = true;
             _hasSpawned = false;
             ResetState();
@@ -168,7 +183,7 @@ namespace CustomCrosshairs
         
         private void HandleDisconnectedFromServer()
         {
-            Log.LogInfo("[CustomCrosshairs] Disconnected from server");
+            Log.LogInfo("[CustomCrosshairs] EVENT: Disconnected from server - resetting state");
             _isInGame = false;
             _hasSpawned = false;
             ResetState();
@@ -176,13 +191,38 @@ namespace CustomCrosshairs
         
         private void HandleLocalPlayerSpawned(int playerId, FactionCountry faction, PlayerClass playerClass)
         {
-            Log.LogInfo($"[CustomCrosshairs] ★ Local player spawned! Id={playerId}, Class={playerClass}");
+            Log.LogInfo($"[CustomCrosshairs] ═══════════════════════════════════════════");
+            Log.LogInfo($"[CustomCrosshairs] ★ EVENT: Local player spawned!");
+            Log.LogInfo($"[CustomCrosshairs]   Player ID: {playerId}");
+            Log.LogInfo($"[CustomCrosshairs]   Class: {playerClass}");
+            Log.LogInfo($"[CustomCrosshairs]   Faction: {faction}");
+            Log.LogInfo($"[CustomCrosshairs]   → Scheduling rangefinder setup in {SETUP_DELAY_AFTER_SPAWN}s");
+            Log.LogInfo($"[CustomCrosshairs] ═══════════════════════════════════════════");
             _hasSpawned = true;
             _setupDelayTimer = SETUP_DELAY_AFTER_SPAWN;
             
             // Reset crosshair/rangefinder state so they get recreated
             _crosshairsReplaced = false;
             _rangefinderCreated = false;
+        }
+        
+        // Fallback handler for general player spawn - used if local player spawn doesn't fire
+        private void HandlePlayerSpawned(int playerId, int spawnSectionId, FactionCountry faction, PlayerClass playerClass, int uniformId, GameObject playerObject)
+        {
+            // If we haven't spawned yet and this spawn has a playerObject (likely us), trigger setup
+            if (!_hasSpawned && playerObject != null)
+            {
+                Log.LogInfo($"[CustomCrosshairs] ═══════════════════════════════════════════");
+                Log.LogInfo($"[CustomCrosshairs] ★ EVENT: Player spawned (fallback trigger)!");
+                Log.LogInfo($"[CustomCrosshairs]   Player ID: {playerId}");
+                Log.LogInfo($"[CustomCrosshairs]   Class: {playerClass}");
+                Log.LogInfo($"[CustomCrosshairs]   → Scheduling rangefinder setup in {SETUP_DELAY_AFTER_SPAWN}s");
+                Log.LogInfo($"[CustomCrosshairs] ═══════════════════════════════════════════");
+                _hasSpawned = true;
+                _setupDelayTimer = SETUP_DELAY_AFTER_SPAWN;
+                _crosshairsReplaced = false;
+                _rangefinderCreated = false;
+            }
         }
         
         private void ResetState()

@@ -1,15 +1,7 @@
 ﻿{
     "Mods":  {
-                 "LauncherCoreMod":  {
-                                         "Version":  "1.0.0",
-                                         "DisplayName":  "Launcher Core",
-                                         "Description":  "Core functionality for the Holdfast Modding Launcher. Includes server browser filtering. Cannot be disabled.",
-                                         "Requirements":  "",
-                                         "DllName":  "LauncherCoreMod.dll",
-                                         "ProjectFolder":  "LauncherCoreMod"
-                                     },
                  "AdvancedAdminUI":  {
-                                         "Version":  "1.0.44",
+                                         "Version":  "1.0.57",
                                          "DisplayName":  "Advanced Admin UI",
                                          "Description":  "A comprehensive client-side admin tool suite for Holdfast: Nations at War. Features include Cavalry Visualization, Rambo Indicator, AFK Indicator, Minimap, and Admin UI.",
                                          "Requirements":  "Requires RC login to use.",
@@ -17,15 +9,31 @@
                                          "ProjectFolder":  "AdvancedAdminUI"
                                      },
                  "CustomSplashScreen":  {
-                                            "Version":  "1.0.10",
+                                            "Version":  "1.0.13",
                                             "DisplayName":  "Custom Splash Screen",
                                             "Description":  "Replace the Holdfast splash screen with custom videos! Configure via the launcher settings.",
                                             "Requirements":  "",
                                             "DllName":  "CustomSplashScreen.dll",
                                             "ProjectFolder":  "CustomSplashScreen"
-                                        }
+                                        },
+                 "CustomCrosshairs":  {
+                                          "Version":  "1.0.28",
+                                          "DisplayName":  "Custom Crosshairs",
+                                          "Description":  "Replace weapon crosshairs with custom images! Configure via the launcher settings.",
+                                          "Requirements":  "",
+                                          "DllName":  "CustomCrosshairs.dll",
+                                          "ProjectFolder":  "CustomCrosshairs"
+                                      },
+                 "LauncherCoreMod":  {
+                                         "Version":  "1.0.10",
+                                         "Description":  "",
+                                         "ProjectFolder":  "LauncherCoreMod",
+                                         "DllName":  "LauncherCoreMod.dll",
+                                         "DisplayName":  "LauncherCoreMod",
+                                         "Requirements":  ""
+                                     }
              },
     "Launcher":  {
-                     "Version":  "1.0.151"
+                     "Version":  "1.0.170"
                  }
 }
