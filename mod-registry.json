@@ -5,6 +5,8 @@
     "modsBaseUrl": "https://raw.githubusercontent.com/Xarkanoth/HoldfastMods/main",
     "releasesBaseUrl": "https://github.com/Xarkanoth/HoldfastMods/releases/download",
     "releasesApiUrl": "https://api.github.com/repos/Xarkanoth/HoldfastMods/releases",
+    "privateRegistryUrl": "https://api.github.com/repos/Xarkanoth/HoldfastPrivateMods/contents/mod-registry.json",
+    "privateReleasesApiUrl": "https://api.github.com/repos/Xarkanoth/HoldfastPrivateMods/releases",
     "mods": [
         {
             "id": "AdvancedAdminUI",

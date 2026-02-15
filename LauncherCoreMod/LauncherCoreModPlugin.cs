@@ -160,6 +160,19 @@ namespace LauncherCoreMod
         public static event Action<int, bool, string> OnPlayerConnected;
         
         // ==========================================
+        // COMBAT EVENTS
+        // ==========================================
+        
+        /// <summary>Fired when a player starts a melee secondary attack. Args: playerId</summary>
+        public static event Action<int> OnPlayerMeleeStartSecondaryAttack;
+        
+        /// <summary>Fired when a player is hurt. Args: playerId, oldHp, newHp, reason</summary>
+        public static event Action<int, byte, byte, EntityHealthChangedReason> OnPlayerHurt;
+        
+        /// <summary>Fired when a player blocks an attack. Args: attackingPlayerId, defendingPlayerId</summary>
+        public static event Action<int, int> OnPlayerBlock;
+        
+        // ==========================================
         // INTERNAL DISPATCH METHODS (called by GameEventDispatcher)
         // ==========================================
         
@@ -183,6 +196,12 @@ namespace LauncherCoreMod
         internal static void RaiseRCLogin(int playerId, bool isLoggedIn) => OnRCLogin?.Invoke(playerId, isLoggedIn);
         internal static void RaisePlayerConnected(int playerId, bool isAutoAdmin, string backendId)
             => OnPlayerConnected?.Invoke(playerId, isAutoAdmin, backendId);
+        internal static void RaisePlayerMeleeStartSecondaryAttack(int playerId)
+            => OnPlayerMeleeStartSecondaryAttack?.Invoke(playerId);
+        internal static void RaisePlayerHurt(int playerId, byte oldHp, byte newHp, EntityHealthChangedReason reason)
+            => OnPlayerHurt?.Invoke(playerId, oldHp, newHp, reason);
+        internal static void RaisePlayerBlock(int attackingPlayerId, int defendingPlayerId)
+            => OnPlayerBlock?.Invoke(attackingPlayerId, defendingPlayerId);
     }
     
     /// <summary>
@@ -527,12 +546,12 @@ namespace LauncherCoreMod
         public void OnIsServer(bool server) { }
         public void OnSyncValueState(int value) { }
         public void PassConfigVariables(string[] value) { }
-        public void OnPlayerHurt(int playerId, byte oldHp, byte newHp, EntityHealthChangedReason reason) { }
+        public void OnPlayerHurt(int playerId, byte oldHp, byte newHp, EntityHealthChangedReason reason) { GameEvents.RaisePlayerHurt(playerId, oldHp, newHp, reason); }
         public void OnScorableAction(int playerId, int score, ScorableActionType reason) { }
         public void OnPlayerShoot(int playerId, bool dryShot) { }
         public void OnShotInfo(int playerId, int shotCount, Vector3[][] shotsPointsPositions, float[] trajectileDistances, float[] distanceFromFiringPositions, float[] horizontalDeviationAngles, float[] maxHorizontalDeviationAngles, float[] muzzleVelocities, float[] gravities, float[] damageHitBaseDamages, float[] damageRangeUnitValues, float[] damagePostTraitAndBuffValues, float[] totalDamages, Vector3[] hitPositions, Vector3[] hitDirections, int[] hitPlayerIds, int[] hitDamageableObjectIds, int[] hitShipIds, int[] hitVehicleIds) { }
-        public void OnPlayerBlock(int attackingPlayerId, int defendingPlayerId) { }
-        public void OnPlayerMeleeStartSecondaryAttack(int playerId) { }
+        public void OnPlayerBlock(int attackingPlayerId, int defendingPlayerId) { GameEvents.RaisePlayerBlock(attackingPlayerId, defendingPlayerId); }
+        public void OnPlayerMeleeStartSecondaryAttack(int playerId) { GameEvents.RaisePlayerMeleeStartSecondaryAttack(playerId); }
         public void OnPlayerWeaponSwitch(int playerId, string weapon) { }
         public void OnPlayerStartCarry(int playerId, CarryableObjectType carryableObject) { }
         public void OnPlayerEndCarry(int playerId) { }

@@ -26,6 +26,12 @@ namespace HoldfastModdingLauncher.Services
         [JsonPropertyName("releasesApiUrl")]
         public string ReleasesApiUrl { get; set; } = string.Empty;
 
+        [JsonPropertyName("privateRegistryUrl")]
+        public string PrivateRegistryUrl { get; set; } = string.Empty;
+
+        [JsonPropertyName("privateReleasesApiUrl")]
+        public string PrivateReleasesApiUrl { get; set; } = string.Empty;
+
         [JsonPropertyName("mods")]
         public List<RemoteModInfo> Mods { get; set; } = new();
 
@@ -88,6 +94,12 @@ namespace HoldfastModdingLauncher.Services
 
         [JsonPropertyName("isEnabled")]
         public bool IsEnabled { get; set; } = true;
+
+        [JsonPropertyName("requiresMasterLogin")]
+        public bool RequiresMasterLogin { get; set; } = false;
+
+        [JsonPropertyName("privateRepoUrl")]
+        public string PrivateRepoUrl { get; set; } = string.Empty;
 
         // Local state (not from JSON)
         [JsonIgnore]
@@ -186,6 +198,11 @@ namespace HoldfastModdingLauncher.Services
         // With Accept header "application/vnd.github.v3.raw" it returns raw file content
         private const string DEFAULT_REGISTRY_URL = "https://api.github.com/repos/Xarkanoth/HoldfastModdingLauncher/contents/mod-registry.json";
 
+        // Obfuscated token for private repo access (base64-encoded GitHub PAT)
+        // Generate a fine-grained PAT with read-only access to Xarkanoth/HoldfastPrivateMods
+        // Then base64 encode it and paste here. Example: Convert.ToBase64String(Encoding.UTF8.GetBytes("github_pat_xxx"))
+        private const string PRIVATE_REPO_TOKEN_B64 = ""; // TODO: Set after creating PAT in GitHub settings
+
         public ModDownloader(ModManager modManager)
         {
             _modManager = modManager;
@@ -195,6 +212,42 @@ namespace HoldfastModdingLauncher.Services
             };
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "HoldfastModdingLauncher");
             // Note: Don't set Accept header here - we need different headers for raw content vs API
+        }
+
+        /// <summary>
+        /// Gets the decoded private repo access token, or null if not configured.
+        /// </summary>
+        private static string? GetPrivateRepoToken()
+        {
+            if (string.IsNullOrEmpty(PRIVATE_REPO_TOKEN_B64))
+                return null;
+            try
+            {
+                return System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(PRIVATE_REPO_TOKEN_B64));
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Checks if the current user has master login by looking for the token file.
+        /// </summary>
+        public static bool IsMasterLoggedIn()
+        {
+            try
+            {
+                string appDataFolder = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "HoldfastModding");
+                string tokenPath = Path.Combine(appDataFolder, "master_login.token");
+                return File.Exists(tokenPath) && !string.IsNullOrWhiteSpace(File.ReadAllText(tokenPath));
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -247,6 +300,12 @@ namespace HoldfastModdingLauncher.Services
                         
                         // Resolve latest versions dynamically from GitHub Releases API
                         await ResolveLatestVersionsAsync(registry);
+
+                        // If master user is logged in, fetch and merge private mods
+                        if (IsMasterLoggedIn())
+                        {
+                            await FetchAndMergePrivateRegistryAsync(registry);
+                        }
                         
                         // Check installed status for each mod
                         await UpdateInstalledStatusAsync(registry);
@@ -443,12 +502,187 @@ namespace HoldfastModdingLauncher.Services
                     }
                 }
 
-                Logger.LogInfo($"Version resolution complete: {registry.Mods.Count - unresolvedMods.Count}/{registry.Mods.Count} mods resolved");
+                Logger.LogInfo($"Version resolution complete: {registry.Mods.Count - unresolvedMods.Count}/{registry.Mods.Count} mods resolved (public)");
             }
             catch (Exception ex)
             {
                 Logger.LogError($"Failed to resolve mod versions from GitHub Releases API: {ex.Message}");
                 // Non-fatal: mods will show without version info but the browser will still work
+            }
+
+        }
+
+        /// <summary>
+        /// Fetches the private mod registry from the private GitHub repo and merges
+        /// its mods into the main registry. Only called for master-logged-in users.
+        /// Also resolves versions for private mods from the private releases API.
+        /// </summary>
+        private async Task FetchAndMergePrivateRegistryAsync(ModRegistry registry)
+        {
+            string? token = GetPrivateRepoToken();
+            if (string.IsNullOrEmpty(token))
+            {
+                Logger.LogWarning("Private repo token not configured - cannot fetch private mods");
+                return;
+            }
+
+            string privateRegistryUrl = registry.PrivateRegistryUrl;
+            string privateReleasesApiUrl = registry.PrivateReleasesApiUrl;
+            if (string.IsNullOrEmpty(privateRegistryUrl))
+            {
+                Logger.LogInfo("No private registry URL configured");
+                return;
+            }
+
+            try
+            {
+                Logger.LogInfo($"Fetching private mod registry for master user...");
+
+                // Fetch the private registry JSON with auth
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+                client.DefaultRequestHeaders.Add("User-Agent", "HoldfastModdingLauncher");
+                client.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3.raw");
+                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+                string json = await client.GetStringAsync(privateRegistryUrl);
+                var privateRegistry = JsonSerializer.Deserialize<ModRegistry>(json, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (privateRegistry?.Mods == null || privateRegistry.Mods.Count == 0)
+                {
+                    Logger.LogInfo("Private registry is empty or could not be parsed");
+                    return;
+                }
+
+                Logger.LogInfo($"Found {privateRegistry.Mods.Count} private mod(s)");
+
+                // Mark all private mods as requiring master login and set their private repo URL
+                foreach (var mod in privateRegistry.Mods)
+                {
+                    mod.RequiresMasterLogin = true;
+                    if (string.IsNullOrEmpty(mod.PrivateRepoUrl))
+                    {
+                        mod.PrivateRepoUrl = privateReleasesApiUrl;
+                    }
+                }
+
+                // Merge into main registry (avoid duplicates by ID)
+                var existingIds = new HashSet<string>(registry.Mods.Select(m => m.Id), StringComparer.OrdinalIgnoreCase);
+                foreach (var mod in privateRegistry.Mods)
+                {
+                    if (!existingIds.Contains(mod.Id))
+                    {
+                        registry.Mods.Add(mod);
+                        existingIds.Add(mod.Id);
+                    }
+                }
+
+                // Now resolve versions for the private mods from the private releases API
+                string releasesUrl = !string.IsNullOrEmpty(privateReleasesApiUrl)
+                    ? privateReleasesApiUrl
+                    : (!string.IsNullOrEmpty(privateRegistry.ReleasesApiUrl)
+                        ? privateRegistry.ReleasesApiUrl
+                        : string.Empty);
+
+                if (string.IsNullOrEmpty(releasesUrl))
+                {
+                    Logger.LogWarning("No private releases API URL configured - private mods will show without versions");
+                    return;
+                }
+
+                await ResolvePrivateVersionsAsync(registry, releasesUrl, token);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Failed to fetch private registry: {ex.Message}");
+                // Non-fatal: public mods still work
+            }
+        }
+
+        /// <summary>
+        /// Resolves versions for private mods from the private repo's releases API.
+        /// Uses authenticated requests and the API asset URL (not browser_download_url) for downloads.
+        /// </summary>
+        private async Task ResolvePrivateVersionsAsync(ModRegistry registry, string releasesApiUrl, string token)
+        {
+            var privateMods = registry.Mods
+                .Where(m => m.RequiresMasterLogin && string.IsNullOrEmpty(m.Version))
+                .ToDictionary(m => m.Id, m => m, StringComparer.OrdinalIgnoreCase);
+
+            if (privateMods.Count == 0) return;
+
+            try
+            {
+                Logger.LogInfo($"Resolving {privateMods.Count} private mod version(s) from releases API...");
+
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+                client.DefaultRequestHeaders.Add("User-Agent", "HoldfastModdingLauncher");
+                client.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3+json");
+                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+
+                string json = await client.GetStringAsync($"{releasesApiUrl}?per_page=100");
+                using var doc = JsonDocument.Parse(json);
+
+                foreach (var release in doc.RootElement.EnumerateArray())
+                {
+                    if (release.TryGetProperty("draft", out var draftEl) && draftEl.GetBoolean())
+                        continue;
+                    if (release.TryGetProperty("prerelease", out var preEl) && preEl.GetBoolean())
+                        continue;
+
+                    if (!release.TryGetProperty("tag_name", out var tagElement))
+                        continue;
+
+                    string tag = tagElement.GetString() ?? string.Empty;
+                    int vIndex = tag.LastIndexOf("-v");
+                    if (vIndex < 0) continue;
+
+                    string modId = tag.Substring(0, vIndex);
+                    string version = tag.Substring(vIndex + 2);
+
+                    if (!privateMods.TryGetValue(modId, out var mod))
+                        continue;
+                    if (!string.IsNullOrEmpty(mod.Version))
+                        continue; // Already resolved (first match = latest)
+
+                    // For private repos, use the API asset URL (requires auth header to download)
+                    string downloadUrl = string.Empty;
+                    if (release.TryGetProperty("assets", out var assetsElement))
+                    {
+                        foreach (var asset in assetsElement.EnumerateArray())
+                        {
+                            if (!asset.TryGetProperty("name", out var nameElement))
+                                continue;
+
+                            string assetName = nameElement.GetString() ?? string.Empty;
+                            if (assetName.Equals(mod.DllName, StringComparison.OrdinalIgnoreCase) ||
+                                assetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                            {
+                                if (asset.TryGetProperty("url", out var assetUrlElement))
+                                {
+                                    downloadUrl = assetUrlElement.GetString() ?? string.Empty;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(version) && !string.IsNullOrEmpty(downloadUrl))
+                    {
+                        mod.Version = version;
+                        mod.DownloadUrl = downloadUrl;
+                        Logger.LogInfo($"Resolved private mod {mod.Id}: v{version}");
+                    }
+                }
+
+                int resolved = privateMods.Values.Count(m => !string.IsNullOrEmpty(m.Version));
+                Logger.LogInfo($"Private version resolution complete: {resolved}/{privateMods.Count} resolved");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Failed to resolve private mod versions: {ex.Message}");
             }
         }
 
@@ -617,10 +851,26 @@ namespace HoldfastModdingLauncher.Services
                 string tempPath = Path.GetTempFileName();
                 bool isZip = downloadUrl.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
 
+                // For private repos, use an authenticated client
+                HttpClient downloadClient = _httpClient;
+                bool disposeClient = false;
+                if (mod.RequiresMasterLogin && !string.IsNullOrEmpty(mod.PrivateRepoUrl))
+                {
+                    string? token = GetPrivateRepoToken();
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        downloadClient = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+                        downloadClient.DefaultRequestHeaders.Add("User-Agent", "HoldfastModdingLauncher");
+                        downloadClient.DefaultRequestHeaders.Add("Accept", "application/octet-stream");
+                        downloadClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+                        disposeClient = true;
+                    }
+                }
+
                 try
                 {
                     // Download the file with detailed progress
-                    using (var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
+                    using (var response = await downloadClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
                     {
                         response.EnsureSuccessStatusCode();
 
@@ -720,6 +970,9 @@ namespace HoldfastModdingLauncher.Services
                     // Cleanup temp file
                     if (File.Exists(tempPath))
                         File.Delete(tempPath);
+                    // Dispose private repo client if created
+                    if (disposeClient && downloadClient != _httpClient)
+                        downloadClient.Dispose();
                 }
             }
             catch (HttpRequestException httpEx)
