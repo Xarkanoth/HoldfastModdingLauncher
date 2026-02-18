@@ -1,0 +1,6 @@
+{
+  "version": "1.0.184",
+  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.184/HoldfastModdingLauncher-v1.0.184.zip",
+  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.184",
+  "releaseNotes": "Fixed update checker and splash screen video loading to use raw.githubusercontent.com instead of rate-limited GitHub API."
+}
