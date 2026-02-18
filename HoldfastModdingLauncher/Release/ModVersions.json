@@ -1,7 +1,7 @@
-﻿{
+{
     "Mods":  {
                  "AdvancedAdminUI":  {
-                                         "Version":  "1.0.57",
+                                         "Version":  "1.0.71",
                                          "DisplayName":  "Advanced Admin UI",
                                          "Description":  "A comprehensive client-side admin tool suite for Holdfast: Nations at War. Features include Cavalry Visualization, Rambo Indicator, AFK Indicator, Minimap, and Admin UI.",
                                          "Requirements":  "Requires RC login to use.",
@@ -9,7 +9,7 @@
                                          "ProjectFolder":  "AdvancedAdminUI"
                                      },
                  "CustomSplashScreen":  {
-                                            "Version":  "1.0.13",
+                                            "Version":  "1.0.14",
                                             "DisplayName":  "Custom Splash Screen",
                                             "Description":  "Replace the Holdfast splash screen with custom videos! Configure via the launcher settings.",
                                             "Requirements":  "",
@@ -17,7 +17,7 @@
                                             "ProjectFolder":  "CustomSplashScreen"
                                         },
                  "CustomCrosshairs":  {
-                                          "Version":  "1.0.28",
+                                          "Version":  "1.0.40",
                                           "DisplayName":  "Custom Crosshairs",
                                           "Description":  "Replace weapon crosshairs with custom images! Configure via the launcher settings.",
                                           "Requirements":  "",
@@ -25,7 +25,7 @@
                                           "ProjectFolder":  "CustomCrosshairs"
                                       },
                  "LauncherCoreMod":  {
-                                         "Version":  "1.0.10",
+                                         "Version":  "1.0.11",
                                          "Description":  "",
                                          "ProjectFolder":  "LauncherCoreMod",
                                          "DllName":  "LauncherCoreMod.dll",
@@ -34,6 +34,6 @@
                                      }
              },
     "Launcher":  {
-                     "Version":  "1.0.170"
+                     "Version":  "1.0.181"
                  }
 }

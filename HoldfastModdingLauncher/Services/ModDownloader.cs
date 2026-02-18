@@ -190,6 +190,7 @@ namespace HoldfastModdingLauncher.Services
     {
         private readonly HttpClient _httpClient;
         private readonly ModManager _modManager;
+        private ApiClient _apiClient;
         private ModRegistry? _cachedRegistry;
         private DateTime _lastRegistryFetch = DateTime.MinValue;
         private readonly TimeSpan _cacheExpiry = TimeSpan.FromMinutes(5);
@@ -198,21 +199,20 @@ namespace HoldfastModdingLauncher.Services
         // With Accept header "application/vnd.github.v3.raw" it returns raw file content
         private const string DEFAULT_REGISTRY_URL = "https://api.github.com/repos/Xarkanoth/HoldfastModdingLauncher/contents/mod-registry.json";
 
-        // Obfuscated token for private repo access (base64-encoded GitHub PAT)
-        // Generate a fine-grained PAT with read-only access to Xarkanoth/HoldfastPrivateMods
-        // Then base64 encode it and paste here. Example: Convert.ToBase64String(Encoding.UTF8.GetBytes("github_pat_xxx"))
-        private const string PRIVATE_REPO_TOKEN_B64 = ""; // TODO: Set after creating PAT in GitHub settings
+        private const string PRIVATE_REPO_TOKEN_B64 = "";
 
-        public ModDownloader(ModManager modManager)
+        public ModDownloader(ModManager modManager, ApiClient apiClient = null)
         {
             _modManager = modManager;
+            _apiClient = apiClient;
             _httpClient = new HttpClient
             {
                 Timeout = TimeSpan.FromSeconds(30)
             };
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "HoldfastModdingLauncher");
-            // Note: Don't set Accept header here - we need different headers for raw content vs API
         }
+
+        public void SetApiClient(ApiClient apiClient) => _apiClient = apiClient;
 
         /// <summary>
         /// Gets the decoded private repo access token, or null if not configured.
@@ -229,6 +229,25 @@ namespace HoldfastModdingLauncher.Services
             {
                 return null;
             }
+        }
+
+        private string GetApiAccessToken()
+        {
+            try
+            {
+                string authFile = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "HoldfastModding", "auth.json");
+                if (File.Exists(authFile))
+                {
+                    var json = File.ReadAllText(authFile);
+                    using var doc = JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("accessToken", out var tokenEl))
+                        return tokenEl.GetString() ?? string.Empty;
+                }
+            }
+            catch { }
+            return string.Empty;
         }
 
         /// <summary>
@@ -271,6 +290,18 @@ namespace HoldfastModdingLauncher.Services
                 return _cachedRegistry;
             }
 
+            // Try self-hosted API first
+            var apiRegistry = await FetchRegistryFromApiAsync();
+            if (apiRegistry != null)
+            {
+                await UpdateInstalledStatusAsync(apiRegistry);
+                _cachedRegistry = apiRegistry;
+                _lastRegistryFetch = DateTime.Now;
+                Logger.LogInfo($"Loaded {apiRegistry.Mods.Count} mod(s) from self-hosted API");
+                return apiRegistry;
+            }
+
+            // Fallback to GitHub
             string registryUrl = GetRegistryUrl();
             int maxRetries = 3;
             
@@ -344,6 +375,58 @@ namespace HoldfastModdingLauncher.Services
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Fetches the mod list from the self-hosted API and converts it to a ModRegistry.
+        /// Returns null if the API is not available or the user is not authenticated.
+        /// </summary>
+        private async Task<ModRegistry?> FetchRegistryFromApiAsync()
+        {
+            if (_apiClient == null || !_apiClient.IsConfigured || !_apiClient.IsAuthenticated)
+                return null;
+
+            try
+            {
+                Logger.LogInfo("Fetching mod list from self-hosted API...");
+                var apiMods = await _apiClient.GetModsAsync();
+                if (apiMods == null || apiMods.Count == 0)
+                {
+                    Logger.LogWarning("Self-hosted API returned empty mod list");
+                    return null;
+                }
+
+                var registry = new ModRegistry
+                {
+                    SchemaVersion = "2.0",
+                    LastUpdated = DateTime.UtcNow,
+                    Mods = new List<RemoteModInfo>()
+                };
+
+                foreach (var apiMod in apiMods)
+                {
+                    registry.Mods.Add(new RemoteModInfo
+                    {
+                        Id = apiMod.ModKey,
+                        Name = apiMod.Name,
+                        Description = apiMod.Description ?? string.Empty,
+                        Version = apiMod.Version,
+                        DllName = $"{apiMod.ModKey}.dll",
+                        Category = apiMod.Category ?? string.Empty,
+                        DownloadUrl = $"{_apiClient.BaseUrl}/api/mods/{apiMod.Id}/download",
+                        IsEnabled = true,
+                        RequiresMasterLogin = false
+                    });
+                }
+
+                Logger.LogInfo($"Self-hosted API returned {registry.Mods.Count} mod(s)");
+                return registry;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning($"Failed to fetch from self-hosted API, will fall back to GitHub: {ex.Message}");
+                return null;
+            }
         }
 
         /// <summary>
@@ -444,13 +527,15 @@ namespace HoldfastModdingLauncher.Services
                         string modId = tag.Substring(0, vIndex);
                         string version = tag.Substring(vIndex + 2); // Skip "-v"
 
-                        // Only process if this mod is in our registry and not yet resolved
-                        if (!unresolvedMods.Contains(modId))
-                            continue;
-
+                        // Only process if this mod is in our registry
                         var mod = registry.Mods.FirstOrDefault(m =>
                             m.Id.Equals(modId, StringComparison.OrdinalIgnoreCase));
                         if (mod == null) continue;
+
+                        // Compare versions semantically - keep the highest, not just the first match
+                        // GitHub API does NOT guarantee chronological order for releases
+                        if (!string.IsNullOrEmpty(mod.Version) && !IsNewerVersion(version, mod.Version))
+                            continue;
 
                         // Get HTML release URL
                         string releaseHtmlUrl = string.Empty;
@@ -644,8 +729,14 @@ namespace HoldfastModdingLauncher.Services
 
                     if (!privateMods.TryGetValue(modId, out var mod))
                         continue;
+
+                    // Compare versions semantically - keep the highest version, not just the first match
+                    // GitHub API does NOT guarantee chronological order for releases
                     if (!string.IsNullOrEmpty(mod.Version))
-                        continue; // Already resolved (first match = latest)
+                    {
+                        if (!IsNewerVersion(version, mod.Version))
+                            continue; // Already have a newer or equal version
+                    }
 
                     // For private repos, use the API asset URL (requires auth header to download)
                     string downloadUrl = string.Empty;
@@ -683,6 +774,25 @@ namespace HoldfastModdingLauncher.Services
             catch (Exception ex)
             {
                 Logger.LogError($"Failed to resolve private mod versions: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Compares two semantic version strings (e.g. "1.0.12" vs "1.0.9").
+        /// Returns true if candidateVersion is strictly newer than currentVersion.
+        /// </summary>
+        private static bool IsNewerVersion(string candidateVersion, string currentVersion)
+        {
+            try
+            {
+                var candidate = new Version(candidateVersion);
+                var current = new Version(currentVersion);
+                return candidate > current;
+            }
+            catch
+            {
+                // Fallback: string comparison (not ideal but better than crashing)
+                return string.Compare(candidateVersion, currentVersion, StringComparison.OrdinalIgnoreCase) > 0;
             }
         }
 
@@ -851,10 +961,25 @@ namespace HoldfastModdingLauncher.Services
                 string tempPath = Path.GetTempFileName();
                 bool isZip = downloadUrl.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
 
-                // For private repos, use an authenticated client
+                // Choose authenticated client based on source
                 HttpClient downloadClient = _httpClient;
                 bool disposeClient = false;
-                if (mod.RequiresMasterLogin && !string.IsNullOrEmpty(mod.PrivateRepoUrl))
+                bool isApiDownload = _apiClient != null && _apiClient.IsAuthenticated
+                    && !string.IsNullOrEmpty(_apiClient.BaseUrl)
+                    && downloadUrl.StartsWith(_apiClient.BaseUrl, StringComparison.OrdinalIgnoreCase);
+
+                if (isApiDownload)
+                {
+                    // Self-hosted API download - the ApiClient handles auth via its own stream method
+                    // but we still need an authenticated HttpClient for the progress-tracked download
+                    downloadClient = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
+                    downloadClient.DefaultRequestHeaders.Add("User-Agent", "HoldfastModdingLauncher");
+                    downloadClient.DefaultRequestHeaders.Authorization =
+                        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",
+                            GetApiAccessToken());
+                    disposeClient = true;
+                }
+                else if (mod.RequiresMasterLogin && !string.IsNullOrEmpty(mod.PrivateRepoUrl))
                 {
                     string? token = GetPrivateRepoToken();
                     if (!string.IsNullOrEmpty(token))

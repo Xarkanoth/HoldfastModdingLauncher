@@ -7,15 +7,57 @@ using BepInEx;
 using BepInEx.Logging;
 using HoldfastSharedMethods;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace CustomCrosshairs
 {
-    [BepInPlugin("com.xarkanoth.customcrosshairs", "Custom Crosshairs", "1.0.28")]
+    /// <summary>
+    /// Dedicated runner MonoBehaviour to ensure reliable Update() calls.
+    /// BepInEx's BaseUnityPlugin.Update() is unreliable in some scenarios.
+    /// </summary>
+    public class CustomCrosshairsRunner : MonoBehaviour
+    {
+        private bool _firstUpdate = true;
+        
+        void Update()
+        {
+            if (_firstUpdate)
+            {
+                _firstUpdate = false;
+                CustomCrosshairsMod.Log?.LogInfo("[CustomCrosshairsRunner] First Update() call!");
+            }
+            CustomCrosshairsMod.DoUpdate();
+        }
+    }
+    
+    /// <summary>
+    /// Attached directly to the main camera. OnPostRender is guaranteed to fire
+    /// on MonoBehaviours attached to a Camera, unlike Camera.onPostRender (static)
+    /// or OnRenderObject (requires renderer).
+    /// </summary>
+    public class TrajectoryRenderer : MonoBehaviour
+    {
+        private bool _firstRender = true;
+        
+        void OnPostRender()
+        {
+            if (_firstRender)
+            {
+                _firstRender = false;
+                CustomCrosshairsMod.Log?.LogInfo("[TrajectoryRenderer] First OnPostRender() call on camera!");
+            }
+            CustomCrosshairsMod.DoRenderTrajectory(GetComponent<Camera>());
+        }
+    }
+    
+    [BepInPlugin("com.xarkanoth.customcrosshairs", "Custom Crosshairs", "1.0.40")]
     [BepInDependency("com.xarkanoth.launchercoremod", BepInDependency.DependencyFlags.HardDependency)]
     public class CustomCrosshairsMod : BaseUnityPlugin
     {
         public static ManualLogSource Log { get; private set; }
+        private static CustomCrosshairsMod _instance;
         
         // Crosshair paths
         private const string CROSSHAIR_PANEL_PATH = "Main Canvas/Game Elements Panel/Crosshair Panel";
@@ -46,16 +88,46 @@ namespace CustomCrosshairs
         private float _currentDistance = 0f;
         private int _raycastLayerMask = -1;
         
+        // Trajectory line rendering
+        private Material _trajectoryMaterial;
+        private const int TRAJECTORY_SEGMENTS = 60;
+        private const float TRAJECTORY_MAX_RANGE = 500f;
+        private const float TRAJECTORY_START_OFFSET = 5f;
+        // Per-shot values are randomized by the game:
+        //   Velocity: ~267-345 m/s, Gravity: ~15.2-16.7
+        // Using midpoints for best average prediction
+        private float _muzzleVelocity = 305f;
+        private float _bulletGravity = 15.9f;
+        private bool _trajectoryLoggedOnce = false;
+        private bool _trajectoryHooked = false;
+        
+        // Enemy tracking for aim guidance
+        private Dictionary<int, TrackedPlayer> _trackedPlayers = new Dictionary<int, TrackedPlayer>();
+        private FactionCountry _localFaction = 0;
+        private int _localPlayerId = -1;
+        private const float AIM_CONE_DEGREES = 10f;
+        private const float AIM_CONE_COS = 0.9848f; // cos(10 degrees) precomputed
+        private const float MIN_DROP_DISPLAY = 0.3f;
+        
         // State tracking
         private bool _isInGame = false;
         private bool _hasSpawned = false;
         private bool _crosshairsReplaced = false;
         private bool _rangefinderCreated = false;
         private float _setupDelayTimer = 0f;
-        private const float SETUP_DELAY_AFTER_SPAWN = 0.5f; // Wait 0.5s after spawn to find UI
+        private const float SETUP_DELAY_AFTER_SPAWN = 0.5f;
+        private static bool _runnerCreated = false;
+        
+        private class TrackedPlayer
+        {
+            public int PlayerId;
+            public FactionCountry Faction;
+            public GameObject PlayerObject;
+        }
         
         void Awake()
         {
+            _instance = this;
             Log = Logger;
             Log.LogInfo("Custom Crosshairs mod loaded!");
             
@@ -79,6 +151,21 @@ namespace CustomCrosshairs
             
             // Subscribe to game events from LauncherCoreMod
             SubscribeToGameEvents();
+            
+            // Defer runner creation until first scene loads (creating during chainloader is too early)
+            SceneManager.sceneLoaded += OnSceneLoadedCreateRunner;
+            Log.LogInfo("[CustomCrosshairs] Subscribed to SceneManager.sceneLoaded - will create runner after first scene loads");
+        }
+        
+        private void OnSceneLoadedCreateRunner(Scene scene, LoadSceneMode mode)
+        {
+            if (_runnerCreated) return;
+            _runnerCreated = true;
+            
+            var go = new GameObject("CustomCrosshairsRunner");
+            UnityEngine.Object.DontDestroyOnLoad(go);
+            go.AddComponent<CustomCrosshairsRunner>();
+            Log.LogInfo($"[CustomCrosshairs] Runner created on scene '{scene.name}' and marked DontDestroyOnLoad");
         }
         
         private void SubscribeToGameEvents()
@@ -198,6 +285,8 @@ namespace CustomCrosshairs
             Log.LogInfo($"[CustomCrosshairs]   Faction: {faction}");
             Log.LogInfo($"[CustomCrosshairs]   → Scheduling rangefinder setup in {SETUP_DELAY_AFTER_SPAWN}s");
             Log.LogInfo($"[CustomCrosshairs] ═══════════════════════════════════════════");
+            _localPlayerId = playerId;
+            _localFaction = faction;
             _hasSpawned = true;
             _setupDelayTimer = SETUP_DELAY_AFTER_SPAWN;
             
@@ -206,9 +295,20 @@ namespace CustomCrosshairs
             _rangefinderCreated = false;
         }
         
-        // Fallback handler for general player spawn - used if local player spawn doesn't fire
+        // Handles ALL player spawns - tracks positions for aim guidance and local player fallback
         private void HandlePlayerSpawned(int playerId, int spawnSectionId, FactionCountry faction, PlayerClass playerClass, int uniformId, GameObject playerObject)
         {
+            // Track all spawned players for aim guidance (master-only feature)
+            if (playerObject != null && _isMasterLoggedIn)
+            {
+                _trackedPlayers[playerId] = new TrackedPlayer
+                {
+                    PlayerId = playerId,
+                    Faction = faction,
+                    PlayerObject = playerObject
+                };
+            }
+            
             // If we haven't spawned yet and this spawn has a playerObject (likely us), trigger setup
             if (!_hasSpawned && playerObject != null)
             {
@@ -218,6 +318,8 @@ namespace CustomCrosshairs
                 Log.LogInfo($"[CustomCrosshairs]   Class: {playerClass}");
                 Log.LogInfo($"[CustomCrosshairs]   → Scheduling rangefinder setup in {SETUP_DELAY_AFTER_SPAWN}s");
                 Log.LogInfo($"[CustomCrosshairs] ═══════════════════════════════════════════");
+                _localFaction = faction;
+                _localPlayerId = playerId;
                 _hasSpawned = true;
                 _setupDelayTimer = SETUP_DELAY_AFTER_SPAWN;
                 _crosshairsReplaced = false;
@@ -230,8 +332,22 @@ namespace CustomCrosshairs
             _crosshairsReplaced = false;
             _rangefinderCreated = false;
             _crosshairImages.Clear();
+            
+            // Destroy tracked rangefinder text GameObjects before clearing refs
+            foreach (var kvp in _rangefinderTexts)
+            {
+                if (kvp.Value != null && kvp.Value.gameObject != null)
+                {
+                    UnityEngine.Object.Destroy(kvp.Value.gameObject);
+                }
+            }
             _rangefinderTexts.Clear();
+            _trackedPlayers.Clear();
+            _localPlayerId = -1;
+            
             _mainCamera = null;
+            _trajectoryLoggedOnce = false;
+            UnhookTrajectoryRenderer();
         }
         
         private void LoadConfig()
@@ -304,7 +420,19 @@ namespace CustomCrosshairs
             return config;
         }
         
-        void Update()
+        /// <summary>
+        /// Called by the dedicated runner MonoBehaviour every frame.
+        /// Uses ReferenceEquals to bypass Unity's overloaded == operator
+        /// which treats destroyed MonoBehaviours as null even when the
+        /// C# reference is still valid.
+        /// </summary>
+        public static void DoUpdate()
+        {
+            if (ReferenceEquals(_instance, null)) return;
+            _instance.DoUpdateInternal();
+        }
+        
+        private void DoUpdateInternal()
         {
             try
             {
@@ -316,6 +444,7 @@ namespace CustomCrosshairs
                     ClearSpriteCache();
                     LoadConfig();
                     CheckMasterLoginStatus();
+                    _hasSpawned = true;
                     _setupDelayTimer = 0.1f; // Trigger setup
                 }
                 
@@ -341,6 +470,155 @@ namespace CustomCrosshairs
                 if (Time.frameCount % 600 == 1)
                 {
                     Log.LogError($"[CustomCrosshairs] Update() exception: {ex.Message}");
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Attaches a TrajectoryRenderer component to the main camera.
+        /// OnPostRender is guaranteed to fire on MonoBehaviours attached to a Camera.
+        /// </summary>
+        private void HookTrajectoryRenderer()
+        {
+            // Actual attachment happens in UpdateRangefinder once _mainCamera is found
+            _trajectoryHooked = false;
+            Log.LogInfo("[CustomCrosshairs] Trajectory renderer will attach to main camera when found");
+        }
+        
+        private void AttachTrajectoryToCamera()
+        {
+            if (_trajectoryHooked || _mainCamera == null) return;
+            
+            // Remove any existing TrajectoryRenderer (from previous rounds)
+            var existing = _mainCamera.GetComponent<TrajectoryRenderer>();
+            if (existing != null)
+            {
+                UnityEngine.Object.Destroy(existing);
+            }
+            
+            _mainCamera.gameObject.AddComponent<TrajectoryRenderer>();
+            _trajectoryHooked = true;
+            Log.LogInfo($"[CustomCrosshairs] TrajectoryRenderer attached to camera '{_mainCamera.name}'");
+        }
+        
+        private void UnhookTrajectoryRenderer()
+        {
+            _trajectoryHooked = false;
+            // Component will be destroyed with the camera or on next attach
+        }
+        
+        /// <summary>
+        /// Called by TrajectoryRenderer.OnPostRender on the camera.
+        /// </summary>
+        public static void DoRenderTrajectory(Camera cam)
+        {
+            if (ReferenceEquals(_instance, null)) return;
+            _instance.RenderTrajectoryInternal(cam);
+        }
+        
+        private void RenderTrajectoryInternal(Camera cam)
+        {
+            try
+            {
+                if (!_isMasterLoggedIn || _config == null || !_config.RangefinderEnabled)
+                    return;
+                if (!_hasSpawned || !_rangefinderCreated)
+                    return;
+                if (cam == null) return;
+                if (_mainCamera != null && cam != _mainCamera) return;
+                
+                if (!_trajectoryLoggedOnce)
+                {
+                    _trajectoryLoggedOnce = true;
+                    Log.LogInfo($"[CustomCrosshairs] Trajectory renderer active (muzzleV={_muzzleVelocity}, gravity={_bulletGravity})");
+                }
+                
+                // Create material for GL rendering if needed
+                if (_trajectoryMaterial == null)
+                {
+                    Shader shader = Shader.Find("Hidden/Internal-Colored");
+                    if (shader == null)
+                    {
+                        Log.LogWarning("[CustomCrosshairs] Hidden/Internal-Colored shader not found");
+                        return;
+                    }
+                    
+                    _trajectoryMaterial = new Material(shader);
+                    _trajectoryMaterial.hideFlags = HideFlags.HideAndDontSave;
+                    _trajectoryMaterial.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha);
+                    _trajectoryMaterial.SetInt("_DstBlend", (int)BlendMode.OneMinusSrcAlpha);
+                    _trajectoryMaterial.SetInt("_Cull", (int)CullMode.Off);
+                    _trajectoryMaterial.SetInt("_ZWrite", 0);
+                    _trajectoryMaterial.SetInt("_ZTest", (int)CompareFunction.Always);
+                }
+                
+                Vector3 camPos = cam.transform.position;
+                Vector3 forward = cam.transform.forward;
+                
+                // Use rangefinder distance or max range
+                float maxRange = (_currentDistance > 10f) ? _currentDistance : TRAJECTORY_MAX_RANGE;
+                float maxTime = maxRange / _muzzleVelocity;
+                
+                // Start a few meters ahead to avoid line clipping through player model
+                float startTime = TRAJECTORY_START_OFFSET / _muzzleVelocity;
+                
+                _trajectoryMaterial.SetPass(0);
+                GL.PushMatrix();
+                
+                // Draw the ballistic arc
+                GL.Begin(GL.LINES);
+                
+                Vector3 prevPoint = camPos 
+                    + forward * (_muzzleVelocity * startTime) 
+                    + Vector3.down * (0.5f * _bulletGravity * startTime * startTime);
+                
+                for (int i = 1; i <= TRAJECTORY_SEGMENTS; i++)
+                {
+                    float fraction = (float)i / TRAJECTORY_SEGMENTS;
+                    float t = startTime + fraction * (maxTime - startTime);
+                    
+                    Vector3 point = camPos 
+                        + forward * (_muzzleVelocity * t) 
+                        + Vector3.down * (0.5f * _bulletGravity * t * t);
+                    
+                    // Fade from bright to dim along the arc
+                    float alpha = Mathf.Lerp(0.9f, 0.15f, fraction);
+                    GL.Color(new Color(0.2f, 1f, 0.4f, alpha));
+                    GL.Vertex(prevPoint);
+                    GL.Vertex(point);
+                    
+                    prevPoint = point;
+                }
+                
+                GL.End();
+                
+                // Draw a small impact cross at the endpoint
+                Vector3 impactPoint = camPos 
+                    + forward * (_muzzleVelocity * maxTime) 
+                    + Vector3.down * (0.5f * _bulletGravity * maxTime * maxTime);
+                
+                Vector3 camRight = cam.transform.right;
+                Vector3 camUp = cam.transform.up;
+                float crossSize = Mathf.Clamp(maxRange * 0.003f, 0.15f, 1.5f);
+                
+                GL.Begin(GL.LINES);
+                GL.Color(new Color(1f, 0.3f, 0.3f, 0.9f));
+                
+                // Horizontal bar
+                GL.Vertex(impactPoint - camRight * crossSize);
+                GL.Vertex(impactPoint + camRight * crossSize);
+                // Vertical bar
+                GL.Vertex(impactPoint - camUp * crossSize);
+                GL.Vertex(impactPoint + camUp * crossSize);
+                
+                GL.End();
+                GL.PopMatrix();
+            }
+            catch (Exception ex)
+            {
+                if (Time.frameCount % 600 == 1)
+                {
+                    Log.LogError($"[CustomCrosshairs] Trajectory render error: {ex.Message}");
                 }
             }
         }
@@ -510,6 +788,10 @@ namespace CustomCrosshairs
             
             try
             {
+                // Destroy any existing rangefinder texts first to prevent doubling
+                DestroyExistingRangefinderTexts(crosshairPanel);
+                _rangefinderTexts.Clear();
+                
                 string[] crosshairNames = {
                     MUSKET_CROSSHAIR_NAME,
                     BLUNDERBUSS_CROSSHAIR_NAME,
@@ -533,9 +815,6 @@ namespace CustomCrosshairs
                 
                 foreach (string crosshairName in crosshairNames)
                 {
-                    if (_rangefinderTexts.ContainsKey(crosshairName))
-                        continue;
-                    
                     Transform crosshairTransform = FindChildByName(crosshairPanel.transform, crosshairName);
                     if (crosshairTransform == null) continue;
                     
@@ -581,12 +860,69 @@ namespace CustomCrosshairs
                 if (_rangefinderTexts.Count > 0)
                 {
                     _rangefinderCreated = true;
+                    HookTrajectoryRenderer();
                     Log.LogInfo($"[CustomCrosshairs] ✓ Rangefinder active with {_rangefinderTexts.Count} text elements");
                 }
             }
             catch (Exception ex)
             {
                 Log.LogError($"[CustomCrosshairs] Error creating rangefinder texts: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Walks the crosshair panel hierarchy and destroys any existing RangefinderText GameObjects.
+        /// Prevents text doubling when the panel persists across respawns/round changes.
+        /// </summary>
+        private void DestroyExistingRangefinderTexts(GameObject crosshairPanel)
+        {
+            try
+            {
+                int destroyed = 0;
+                string[] crosshairNames = {
+                    MUSKET_CROSSHAIR_NAME,
+                    BLUNDERBUSS_CROSSHAIR_NAME,
+                    PISTOL_CROSSHAIR_NAME,
+                    RIFLE_CROSSHAIR_NAME,
+                    CUSTOM_CROSSHAIR_NAME
+                };
+                
+                foreach (string crosshairName in crosshairNames)
+                {
+                    Transform crosshairTransform = FindChildByName(crosshairPanel.transform, crosshairName);
+                    if (crosshairTransform == null) continue;
+                    
+                    // Check both possible parents: the image child and the crosshair itself
+                    Transform[] parents = new Transform[] {
+                        FindChildByName(crosshairTransform, CROSSHAIR_IMAGE_NAME),
+                        crosshairTransform
+                    };
+                    
+                    foreach (Transform parent in parents)
+                    {
+                        if (parent == null) continue;
+                        
+                        // Iterate children in reverse to safely destroy
+                        for (int i = parent.childCount - 1; i >= 0; i--)
+                        {
+                            Transform child = parent.GetChild(i);
+                            if (child.name == "RangefinderText")
+                            {
+                                UnityEngine.Object.Destroy(child.gameObject);
+                                destroyed++;
+                            }
+                        }
+                    }
+                }
+                
+                if (destroyed > 0)
+                {
+                    Log.LogInfo($"[CustomCrosshairs] Cleaned up {destroyed} old rangefinder text(s)");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.LogWarning($"[CustomCrosshairs] Error cleaning up old rangefinder texts: {ex.Message}");
             }
         }
         
@@ -624,6 +960,12 @@ namespace CustomCrosshairs
                 if (_mainCamera == null)
                     return;
                 
+                // Attach trajectory renderer to camera if not yet done
+                if (!_trajectoryHooked && _isMasterLoggedIn)
+                {
+                    AttachTrajectoryToCamera();
+                }
+                
                 // Calculate layer mask on first use
                 if (_raycastLayerMask == -1)
                 {
@@ -651,8 +993,17 @@ namespace CustomCrosshairs
                 
                 _currentDistance = distance;
                 
-                // Update all rangefinder texts
+                // Build rangefinder display text
                 string distanceText = distance > 0f ? $"{distance:F0}m" : "---";
+                
+                // Scan for nearest enemy in aim direction
+                string aimGuidance = FindEnemyAimGuidance(ray.direction);
+                if (!string.IsNullOrEmpty(aimGuidance))
+                {
+                    distanceText += "\n" + aimGuidance;
+                }
+                
+                // Update all rangefinder texts
                 foreach (var kvp in _rangefinderTexts)
                 {
                     if (kvp.Value != null)
@@ -664,6 +1015,104 @@ namespace CustomCrosshairs
             catch (Exception ex)
             {
                 Log.LogError($"[CustomCrosshairs] Error updating rangefinder: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Scans tracked enemy players, finds the closest one within the aim cone,
+        /// then simulates where the bullet would land at that distance given the
+        /// CURRENT aim direction. Shows the remaining vertical offset so the
+        /// number decreases as the player raises/lowers their crosshair.
+        /// </summary>
+        private string FindEnemyAimGuidance(Vector3 aimDirection)
+        {
+            if (_mainCamera == null || _localPlayerId < 0 || _trackedPlayers.Count == 0)
+                return null;
+            
+            Vector3 camPos = _mainCamera.transform.position;
+            Vector3 aimDir = aimDirection.normalized;
+            float nearestDist = float.MaxValue;
+            int nearestId = -1;
+            Vector3 nearestEnemyCenter = Vector3.zero;
+            
+            var deadKeys = new List<int>();
+            
+            foreach (var kvp in _trackedPlayers)
+            {
+                var tp = kvp.Value;
+                
+                if (tp.PlayerId == _localPlayerId) continue;
+                if (tp.Faction == _localFaction) continue;
+                
+                if (tp.PlayerObject == null)
+                {
+                    deadKeys.Add(kvp.Key);
+                    continue;
+                }
+                
+                Vector3 enemyPos = tp.PlayerObject.transform.position + Vector3.up * 1.3f;
+                Vector3 toEnemy = enemyPos - camPos;
+                float dist = toEnemy.magnitude;
+                
+                if (dist > 500f || dist < 3f) continue;
+                
+                float dot = Vector3.Dot(aimDir, toEnemy.normalized);
+                if (dot < AIM_CONE_COS) continue;
+                
+                if (dist < nearestDist)
+                {
+                    nearestDist = dist;
+                    nearestId = tp.PlayerId;
+                    nearestEnemyCenter = enemyPos;
+                }
+            }
+            
+            foreach (int key in deadKeys)
+            {
+                _trackedPlayers.Remove(key);
+            }
+            
+            if (nearestId < 0) return null;
+            
+            // Simulate where the bullet would be at the enemy's distance
+            // given the CURRENT aim direction.
+            // bullet_pos(t) = camPos + aimDir * muzzleVelocity * t + down * 0.5 * g * t²
+            // At the enemy's range: t = distance / muzzleVelocity
+            float timeToTarget = nearestDist / _muzzleVelocity;
+            Vector3 bulletAtTarget = camPos 
+                + aimDir * nearestDist 
+                + Vector3.down * (0.5f * _bulletGravity * timeToTarget * timeToTarget);
+            
+            // How far does the bullet miss the enemy's center mass vertically?
+            float verticalMiss = bulletAtTarget.y - nearestEnemyCenter.y;
+            // Positive = bullet goes OVER enemy → aim lower
+            // Negative = bullet falls SHORT → aim higher
+            
+            // Elevation indicator (enemy above/below you)
+            float heightDiff = nearestEnemyCenter.y - camPos.y;
+            string elevText = "";
+            if (Mathf.Abs(heightDiff) > 2f)
+            {
+                elevText = heightDiff > 0f ? "\u25B2" : "\u25BC";
+            }
+            
+            // Format based on miss direction and magnitude
+            float absMiss = Mathf.Abs(verticalMiss);
+            
+            if (absMiss < MIN_DROP_DISPLAY)
+            {
+                // On target - turn green
+                return $"<color=#44FF44>E:{nearestDist:F0}m{elevText} \u25CF</color>";
+            }
+            else if (verticalMiss < 0f)
+            {
+                // Bullet falls short - aim higher
+                return $"<color=#FF6666>E:{nearestDist:F0}m{elevText} \u2191{absMiss:F1}m</color>";
+            }
+            else
+            {
+                // Bullet goes over - aim lower
+                return $"<color=#FFAA44>E:{nearestDist:F0}m{elevText} \u2193{absMiss:F1}m</color>";
             }
         }
         
@@ -752,7 +1201,13 @@ namespace CustomCrosshairs
         
         void OnDestroy()
         {
+            UnhookTrajectoryRenderer();
             ClearSpriteCache();
+            if (_trajectoryMaterial != null)
+            {
+                UnityEngine.Object.Destroy(_trajectoryMaterial);
+                _trajectoryMaterial = null;
+            }
         }
     }
     

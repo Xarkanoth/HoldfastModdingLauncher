@@ -32,7 +32,7 @@ namespace AdvancedAdminUI.Utils
 
         private static readonly ConcurrentDictionary<int, PlayerData> _players = new ConcurrentDictionary<int, PlayerData>();
         private static int _initialized = 0; // Use Interlocked for thread-safe initialization
-        private static object _scanCoroutine = null; // Use object since StartCoroutine returns object
+        private static UnityEngine.Coroutine _scanCoroutine = null;
 
         public static void Initialize()
         {
@@ -95,13 +95,21 @@ namespace AdvancedAdminUI.Utils
             {
                 try
                 {
-                    // Coroutine stopped;
+                    var runner = AdvancedAdminUIMod.Runner;
+                    if (runner != null)
+                        runner.StopCoroutine(_scanCoroutine);
                 }
                 catch { }
+                _scanCoroutine = null;
             }
             
             // Wait a bit for the game to fully load, then scan
-            _scanCoroutine = AdvancedAdminUIMod.Instance.StartCoroutine(ScanForExistingPlayersDelayed());
+            // Use Runner instead of Instance - the plugin component may be disabled by BepInEx
+            var runnerObj = AdvancedAdminUIMod.Runner;
+            if (runnerObj != null)
+                _scanCoroutine = runnerObj.StartCoroutine(ScanForExistingPlayersDelayed());
+            else
+                AdvancedAdminUIMod.Log?.LogWarning("[PlayerTracker] Cannot scan - Runner is null");
         }
         
         /// <summary>
@@ -401,7 +409,12 @@ namespace AdvancedAdminUI.Utils
             TriggerGlobalCleanup();
             
             // After a delay, scan for existing players (in case we joined late and events already fired)
-            AdvancedAdminUIMod.Instance.StartCoroutine(ScanAfterRoundStart());
+            // Use Runner instead of Instance - the plugin component may be disabled by BepInEx
+            var runner = AdvancedAdminUIMod.Runner;
+            if (runner != null)
+                runner.StartCoroutine(ScanAfterRoundStart());
+            else
+                AdvancedAdminUIMod.Log.LogWarning("[PlayerTracker] Cannot start ScanAfterRoundStart - Runner is null");
         }
         
         private static System.Collections.IEnumerator ScanAfterRoundStart()
@@ -705,10 +718,11 @@ namespace AdvancedAdminUI.Utils
                 
                 if (searchingFor.Count > 0)
                 {
-                    // Re-queue players we didn't find for next search
+                    // Re-queue only players that still exist in _players (prevents stale IDs from accumulating forever)
                     foreach (int id in searchingFor)
                     {
-                        _pendingGameObjectSearches.Add(id);
+                        if (_players.ContainsKey(id))
+                            _pendingGameObjectSearches.Add(id);
                     }
                 }
             }

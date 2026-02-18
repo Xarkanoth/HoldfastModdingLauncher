@@ -11,26 +11,41 @@ using BepInEx.Logging;
 using HarmonyLib;
 using HoldfastSharedMethods;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace LauncherCoreMod
 {
     /// <summary>
     /// Persistent runner MonoBehaviour on its own GameObject.
-    /// This stays active even when BepInEx_Manager is disabled.
+    /// Created after first scene load to avoid being destroyed during BepInEx chainloader.
     /// </summary>
     public class LauncherCoreRunner : MonoBehaviour
     {
         private LauncherCoreModPlugin _plugin;
+        private bool _firstUpdate = true;
+        private int _updateCount = 0;
         
         public void Initialize(LauncherCoreModPlugin plugin)
         {
             _plugin = plugin;
-            LauncherCoreModPlugin.Log?.LogInfo("[LauncherCoreRunner] Initialized - Update() will call plugin methods");
+            LauncherCoreModPlugin.Log?.LogInfo("[LauncherCoreRunner] Initialized and ready");
+        }
+        
+        void OnDestroy()
+        {
+            LauncherCoreModPlugin.Log?.LogError("[LauncherCoreRunner] OnDestroy called! Will re-create on next scene load.");
         }
         
         void Update()
         {
+            _updateCount++;
+            if (_firstUpdate)
+            {
+                _firstUpdate = false;
+                LauncherCoreModPlugin.Log?.LogInfo($"[LauncherCoreRunner] First Update() call! Frame={Time.frameCount} Time={Time.time:F2}");
+            }
+            
             if (_plugin != null)
             {
                 try
@@ -52,7 +67,7 @@ namespace LauncherCoreMod
     /// - Game event dispatching via IHoldfastSharedMethods (for other mods to subscribe to)
     /// - Master login verification
     /// </summary>
-    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.10")]
+    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.11")]
     public class LauncherCoreModPlugin : BaseUnityPlugin
     {
         public static ManualLogSource Log { get; private set; }
@@ -61,6 +76,7 @@ namespace LauncherCoreMod
         private ServerBrowserFilter _serverBrowserFilter;
         private GameEventDispatcher _eventDispatcher;
         private GameObject _runnerObject;
+        private bool _runnerCreated = false;
         
         void Awake()
         {
@@ -68,23 +84,104 @@ namespace LauncherCoreMod
             Log = Logger;
             Log.LogInfo("Launcher Core Mod loaded!");
             
-            // Create persistent runner GameObject
-            _runnerObject = new GameObject("LauncherCoreModRunner");
-            DontDestroyOnLoad(_runnerObject);
-            var runner = _runnerObject.AddComponent<LauncherCoreRunner>();
-            runner.Initialize(this);
-            Log.LogInfo("[Awake] Created persistent runner GameObject");
-            
-            // Initialize server browser filter
+            // Initialize server browser filter (doesn't need MonoBehaviour)
             _serverBrowserFilter = new ServerBrowserFilter();
             _serverBrowserFilter.Initialize();
             
-            // Initialize game event dispatcher and try immediate registration
+            // Initialize game event dispatcher
             _eventDispatcher = new GameEventDispatcher();
             Log.LogInfo("[Awake] Game event dispatcher initialized");
             
-            // Try immediate registration
-            _eventDispatcher.TryRegisterNow();
+            // DO NOT create runner GameObjects here - they get destroyed during chainloader cleanup.
+            // Instead, wait for first scene load and also start a coroutine on the plugin itself.
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            Log.LogInfo("[Awake] Subscribed to SceneManager.sceneLoaded - will create runner after first scene loads");
+            
+            // Start the main work loop as a coroutine on the plugin's own MonoBehaviour
+            // (plugin lives on BepInEx's manager object which is never destroyed)
+            StartCoroutine(MainLoopCoroutine());
+            Log.LogInfo("[Awake] Started main loop coroutine on plugin object");
+        }
+        
+        /// <summary>
+        /// Called when any scene loads. Creates/recreates the persistent runner.
+        /// </summary>
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            Log.LogInfo($"[SceneLoaded] Scene '{scene.name}' loaded (mode={mode}). Creating runner if needed...");
+            EnsureRunnerExists();
+            
+            // Try game event registration on every scene load
+            // Pass scene info so dispatcher can force re-registration on server changes
+            _eventDispatcher?.TryRegisterNow(scene.name, mode);
+        }
+        
+        /// <summary>
+        /// Creates the persistent runner GameObject if it doesn't already exist.
+        /// Called after scene loads so DontDestroyOnLoad actually works.
+        /// </summary>
+        private void EnsureRunnerExists()
+        {
+            if (_runnerObject != null) return;
+            
+            try
+            {
+                _runnerObject = new GameObject("LauncherCoreModRunner");
+                DontDestroyOnLoad(_runnerObject);
+                var runner = _runnerObject.AddComponent<LauncherCoreRunner>();
+                runner.Initialize(this);
+                _runnerCreated = true;
+                Log.LogInfo("[EnsureRunner] ✓ Runner GameObject created and marked DontDestroyOnLoad");
+            }
+            catch (Exception ex)
+            {
+                Log.LogError($"[EnsureRunner] Failed to create runner: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// Main work loop running as a coroutine on the plugin's own MonoBehaviour.
+        /// This is the primary driver now - runs on BepInEx's own GameObject which persists.
+        /// </summary>
+        private IEnumerator MainLoopCoroutine()
+        {
+            Log.LogInfo("[MainLoop] Coroutine started - waiting for first frame...");
+            yield return null; // Wait one frame for chainloader to finish
+            
+            Log.LogInfo("[MainLoop] First frame complete. Starting work loop.");
+            
+            float lastUpdate = 0f;
+            int loopCount = 0;
+            
+            while (true)
+            {
+                loopCount++;
+                
+                // Log periodically
+                if (loopCount <= 5 || loopCount % 50 == 0)
+                {
+                    Log.LogInfo($"[MainLoop] Tick #{loopCount} | Time={Time.time:F1} | RunnerAlive={_runnerObject != null}");
+                }
+                
+                // Do the actual work every frame-ish (coroutine yield null = every frame)
+                try
+                {
+                    DoUpdate();
+                }
+                catch (Exception ex)
+                {
+                    Log.LogError($"[MainLoop] Error in DoUpdate: {ex.Message}");
+                }
+                
+                // Re-create runner if it was destroyed (scene change, etc.)
+                if (_runnerCreated && _runnerObject == null)
+                {
+                    Log.LogWarning("[MainLoop] Runner was destroyed! Attempting re-creation...");
+                    EnsureRunnerExists();
+                }
+                
+                yield return null; // Every frame
+            }
         }
         
         public void DoUpdate()
@@ -95,6 +192,7 @@ namespace LauncherCoreMod
         
         void OnApplicationQuit()
         {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
             _serverBrowserFilter?.Shutdown();
         }
     }
@@ -231,17 +329,36 @@ namespace LauncherCoreMod
         private const float REGISTRATION_RETRY_INTERVAL = 2f;
         private bool _loggedWaiting = false;
         
-        public void TryRegisterNow()
+        /// <summary>
+        /// Called from OnSceneLoaded. For ClientScene (Single mode), forces re-registration
+        /// since the old ClientModLoaderManager was destroyed on server change.
+        /// </summary>
+        public void TryRegisterNow(string sceneName = null, LoadSceneMode mode = LoadSceneMode.Additive)
         {
+            // ClientScene loaded as Single = connecting to a new server
+            // The old ClientModLoaderManager is gone, so force re-registration
+            if (sceneName == "ClientScene" && mode == LoadSceneMode.Single)
+            {
+                LauncherCoreModPlugin.Log?.LogInfo("[GameEvents] ClientScene loaded - forcing re-registration for new server");
+                _registered = false;
+                _receiver = null;
+                _loggedWaiting = false;
+                _registrationAttempts = 0;
+                HoldfastEventReceiver.ResetRegistration();
+            }
+            
             TryRegister();
         }
         
+        private int _registrationAttempts = 0;
+
         public void OnUpdate()
         {
             // Try to register with the game if not yet registered
             if (!_registered && Time.time - _lastRegistrationAttempt > REGISTRATION_RETRY_INTERVAL)
             {
                 _lastRegistrationAttempt = Time.time;
+                _registrationAttempts++;
                 TryRegister();
             }
         }
@@ -260,11 +377,26 @@ namespace LauncherCoreMod
                 _loggedWaiting = true;
             }
             
+            // Log every 5th attempt so we know retries are happening
+            if (_registrationAttempts % 5 == 0)
+            {
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] Registration attempt #{_registrationAttempts}...");
+            }
+            
             if (HoldfastEventReceiver.Register())
             {
                 _registered = true;
                 _receiver = HoldfastEventReceiver.Instance;
                 LauncherCoreModPlugin.Log?.LogInfo("[GameEvents] ✓ Successfully registered with game!");
+
+                // After registration, try to get Steam ID from Steamworks.NET and raise OnConnectedToServer.
+                // OnIsClient may have already fired (and been missed), so we read it directly.
+                // Only do this if we don't already know the Steam ID (first registration)
+                // or if we just reset (server change - _localSteamId was cleared by ResetRegistration).
+                if (HoldfastEventReceiver.LocalSteamId == 0)
+                {
+                    HoldfastEventReceiver.TryGetSteamIdFromSteamworks();
+                }
             }
         }
     }
@@ -296,6 +428,107 @@ namespace LauncherCoreMod
         /// <summary>Check if master login is active</summary>
         public static bool IsMasterLoggedIn => _isMasterLoggedIn || MasterLoginManager.IsMasterLoggedIn();
         
+        /// <summary>
+        /// Tries to read the local Steam ID from Steamworks.NET via reflection.
+        /// Called after registration if OnIsClient was missed (fired before we registered).
+        /// </summary>
+        public static void TryGetSteamIdFromSteamworks()
+        {
+            try
+            {
+                // Steamworks.NET is loaded by the game. Try: SteamUser.GetSteamID().m_SteamID
+                Assembly steamworksAssembly = null;
+                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    if (asm.GetName().Name == "com.rlabrecque.steamworks.net" ||
+                        asm.GetName().Name == "Steamworks.NET" ||
+                        asm.GetName().Name.Contains("Steamworks"))
+                    {
+                        steamworksAssembly = asm;
+                        break;
+                    }
+                }
+
+                if (steamworksAssembly == null)
+                {
+                    // Steamworks types might be in Assembly-CSharp or a preloaded assembly
+                    // Try to find SteamUser type in all loaded assemblies
+                    Type steamUserType = null;
+                    foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                    {
+                        steamUserType = asm.GetType("Steamworks.SteamUser");
+                        if (steamUserType != null)
+                        {
+                            steamworksAssembly = asm;
+                            break;
+                        }
+                    }
+
+                    if (steamUserType == null)
+                    {
+                        LauncherCoreModPlugin.Log?.LogInfo("[GameEvents] Steamworks.SteamUser type not found in any loaded assembly");
+                        return;
+                    }
+                }
+
+                Type suType = steamworksAssembly.GetType("Steamworks.SteamUser");
+                if (suType == null)
+                {
+                    LauncherCoreModPlugin.Log?.LogInfo("[GameEvents] Steamworks.SteamUser type not found");
+                    return;
+                }
+
+                MethodInfo getSteamIdMethod = suType.GetMethod("GetSteamID", BindingFlags.Public | BindingFlags.Static);
+                if (getSteamIdMethod == null)
+                {
+                    LauncherCoreModPlugin.Log?.LogInfo("[GameEvents] SteamUser.GetSteamID method not found");
+                    return;
+                }
+
+                object steamIdObj = getSteamIdMethod.Invoke(null, null);
+                if (steamIdObj != null)
+                {
+                    // CSteamID has an m_SteamID field (ulong)
+                    FieldInfo steamIdField = steamIdObj.GetType().GetField("m_SteamID", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                    if (steamIdField != null)
+                    {
+                        ulong steamId = (ulong)steamIdField.GetValue(steamIdObj);
+                        if (steamId > 0)
+                        {
+                            _localSteamId = steamId;
+                            LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ═══════════════════════════════════════════");
+                            LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ★ Got Steam ID from Steamworks: {steamId}");
+                            LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ═══════════════════════════════════════════");
+                            GameEvents.RaiseConnectedToServer(steamId);
+                            return;
+                        }
+                    }
+
+                    // Alternative: try implicit conversion to ulong
+                    try
+                    {
+                        ulong steamId = Convert.ToUInt64(steamIdObj);
+                        if (steamId > 0)
+                        {
+                            _localSteamId = steamId;
+                            LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ═══════════════════════════════════════════");
+                            LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ★ Got Steam ID (converted): {steamId}");
+                            LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ═══════════════════════════════════════════");
+                            GameEvents.RaiseConnectedToServer(steamId);
+                            return;
+                        }
+                    }
+                    catch { }
+                }
+
+                LauncherCoreModPlugin.Log?.LogInfo("[GameEvents] Could not extract Steam ID from Steamworks");
+            }
+            catch (Exception ex)
+            {
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] Steamworks Steam ID lookup failed: {ex.Message}");
+            }
+        }
+
         public static bool Register()
         {
             // If we're already successfully registered, verify and return
@@ -389,6 +622,19 @@ namespace LauncherCoreMod
             }
         }
         
+        /// <summary>
+        /// Resets all registration state. Called when connecting to a new server
+        /// so the old stale references don't prevent re-registration.
+        /// </summary>
+        public static void ResetRegistration()
+        {
+            Instance = null;
+            _lastKnownInstancesList = null;
+            _isClientConnected = false;
+            _localPlayerId = -1;
+            _localSteamId = 0; // Reset so TryGetSteamIdFromSteamworks will re-raise OnConnectedToServer
+        }
+        
         public static bool IsStillRegistered()
         {
             if (Instance == null || _lastKnownInstancesList == null)
@@ -446,16 +692,38 @@ namespace LauncherCoreMod
             // Log all player joins for debugging
             LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] OnPlayerJoined: Id={playerId}, SteamId={steamId}, Name={name}, IsBot={isBot}");
             
-            // Track local player - steamId is 0 for the local player (server doesn't send your own ID)
-            // Or it matches our Steam ID if we captured it from OnIsClient
-            if (!isBot && (steamId == 0 || (_localSteamId > 0 && steamId == _localSteamId)))
+            // Track local player identification:
+            // 1. If we have a known Steam ID, match against it (most reliable)
+            // 2. NEVER match steamId==0 against _localSteamId==0 (this matches random players!)
+            bool isLocalPlayer = false;
+            string matchReason = "";
+
+            if (_localSteamId > 0 && steamId == _localSteamId)
+            {
+                isLocalPlayer = true;
+                matchReason = $"SteamId match ({steamId})";
+            }
+            else if (_localSteamId > 0 && steamId == 0 && !isBot)
+            {
+                // We have a real Steam ID but this player reports 0 - this could be us or anyone.
+                // Don't match - wait for exact Steam ID match.
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents]   Skipping steamId=0 player (we know our ID is {_localSteamId})");
+            }
+            else if (_localSteamId == 0 && steamId > 0 && !isBot)
+            {
+                // We don't know our Steam ID yet, and this player has a real one.
+                // Can't determine if it's us. Skip.
+            }
+            // Note: _localSteamId==0 && steamId==0 is ambiguous - DON'T match (was the old bug)
+
+            if (isLocalPlayer)
             {
                 _localPlayerId = playerId;
                 LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ═══════════════════════════════════════════");
                 LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ★ STEP 2: Local player identified!");
                 LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents]   Player ID: {playerId}");
                 LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents]   Name: {name}");
-                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents]   Matched via: {(steamId == 0 ? "SteamId=0" : "SteamId match")}");
+                LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents]   Matched via: {matchReason}");
                 LauncherCoreModPlugin.Log?.LogInfo($"[GameEvents] ═══════════════════════════════════════════");
             }
             

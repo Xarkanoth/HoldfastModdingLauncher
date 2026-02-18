@@ -18,7 +18,7 @@ namespace CustomSplashScreen
     {
         public const string PLUGIN_GUID = "com.xarkanoth.customsplashscreen";
         public const string PLUGIN_NAME = "Custom Splash Screen";
-        public const string PLUGIN_VERSION = "1.0.7";
+        public const string PLUGIN_VERSION = "1.0.14";
 
         public static ManualLogSource Log;
         public static CustomSplashScreenMod Instance;

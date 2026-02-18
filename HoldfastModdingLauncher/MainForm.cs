@@ -21,6 +21,7 @@ namespace HoldfastModdingLauncher
         private readonly ModDownloader _modDownloader;
         private readonly Injector _injector;
         private readonly PreferencesManager _preferencesManager;
+        private readonly ApiClient _apiClient;
         
         // Store remote mod info for updates
         private Dictionary<string, RemoteModInfo> _remoteModInfo = new Dictionary<string, RemoteModInfo>();
@@ -44,22 +45,29 @@ namespace HoldfastModdingLauncher
         private string _selectedModFileName = null;
         private Dictionary<string, ModManifest> _modManifests = new Dictionary<string, ModManifest>();
         
-        // Master login (bypasses RC login requirement)
+        // Login
+        private TextBox _loginUsernameBox;
         private TextBox _loginPasswordBox;
         private Button _loginButton;
+        private Button _adminPanelButton;
         private Label _loginStatusLabel;
         private bool _isMasterLoggedIn = false;
+        private string _loggedInClientName = null;
         
-        // Secure password hash - SHA256 of password with salt (password is never stored)
-        // This hash cannot be reversed to get the original password
-        // Even if someone sees this hash, they cannot determine the password
-        private const string PASSWORD_HASH = "5af29f81b2678084c9ffb40fcfeb0ee8287f4f5a16fb73229aca874503097728";
+        // Secure password hashes - SHA256 of password with salt (passwords are never stored)
+        // These hashes cannot be reversed to get the original passwords
+        // Each hash maps to a client name for display
+        private static readonly Dictionary<string, string> MASTER_LOGINS = new Dictionary<string, string>
+        {
+            { "5af29f81b2678084c9ffb40fcfeb0ee8287f4f5a16fb73229aca874503097728", "Xarkanoth" },
+            { "18d767b5b1cef549d8fc7760e7a0853b9d583b82edc2e4e05f62505db95ea0d5", "BMR" }
+        };
         private const string HASH_SALT = "HF_MODDING_2024_XARK";
         private const string LOGIN_TOKEN_FILE = "master_login.token";
         
-        // LauncherCoreMod integrity protection
+        // LauncherCoreMod integrity protection 
         private const string LAUNCHER_CORE_MOD_NAME = "LauncherCoreMod.dll";
-        private const string LAUNCHER_CORE_MOD_EXPECTED_HASH = "64693715c3a050d157b80ce72a41aecef57eb813250abc80575b94f68db31ea1";
+        private const string LAUNCHER_CORE_MOD_EXPECTED_HASH = "8195ea3d0eeb20c751da4ae82032d8b98e014603502e0101fba3ae3e1d8d9aed";
 
         // Dark theme colors (matching InstallerForm)
         private readonly Color DarkBg = Color.FromArgb(18, 18, 18);
@@ -75,8 +83,10 @@ namespace HoldfastModdingLauncher
             _holdfastManager = new HoldfastManager();
             _modManager = new ModManager();
             _versionChecker = new ModVersionChecker();
+            _apiClient = new ApiClient();
             _updateChecker = new UpdateChecker();
-            _modDownloader = new ModDownloader(_modManager);
+            _updateChecker.SetApiClient(_apiClient);
+            _modDownloader = new ModDownloader(_modManager, _apiClient);
             _injector = new Injector();
             _preferencesManager = new PreferencesManager();
             
@@ -412,23 +422,39 @@ namespace HoldfastModdingLauncher
             _detailsPanel.Controls.Add(_modSettingsButton);
             _modSettingsButton.BringToFront();  // Ensure button is on top
 
-            // Master Login section - Moved down
+            // Login section
             var loginSectionLabel = new Label
             {
-                Text = "MASTER LOGIN",
+                Text = "LOGIN",
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
                 ForeColor = AccentMagenta,
                 AutoSize = true,
-                Location = new Point(25, 565),
+                Location = new Point(25, 555),
                 BackColor = Color.Transparent
             };
             contentPanel.Controls.Add(loginSectionLabel);
-            
+
+            _loginUsernameBox = new TextBox
+            {
+                Location = new Point(25, 580),
+                Size = new Size(140, 26),
+                Font = new Font("Segoe UI", 9F),
+                BackColor = DarkPanel,
+                ForeColor = TextLight,
+                BorderStyle = BorderStyle.FixedSingle,
+                Text = ""
+            };
+            _loginUsernameBox.GotFocus += (s, e) => { if (_loginUsernameBox.ForeColor == TextGray) { _loginUsernameBox.Text = ""; _loginUsernameBox.ForeColor = TextLight; } };
+            _loginUsernameBox.LostFocus += (s, e) => { if (string.IsNullOrEmpty(_loginUsernameBox.Text)) { _loginUsernameBox.ForeColor = TextGray; _loginUsernameBox.Text = "Username"; } };
+            _loginUsernameBox.ForeColor = TextGray;
+            _loginUsernameBox.Text = "Username";
+            contentPanel.Controls.Add(_loginUsernameBox);
+
             _loginPasswordBox = new TextBox
             {
-                Location = new Point(25, 590),
-                Size = new Size(200, 28),
-                Font = new Font("Segoe UI", 10F),
+                Location = new Point(175, 580),
+                Size = new Size(140, 26),
+                Font = new Font("Segoe UI", 9F),
                 BackColor = DarkPanel,
                 ForeColor = TextLight,
                 BorderStyle = BorderStyle.FixedSingle,
@@ -441,8 +467,8 @@ namespace HoldfastModdingLauncher
             {
                 Text = "Login",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                Size = new Size(80, 28),
-                Location = new Point(235, 590),
+                Size = new Size(70, 26),
+                Location = new Point(325, 580),
                 BackColor = DarkPanel,
                 ForeColor = AccentCyan,
                 FlatStyle = FlatStyle.Flat,
@@ -452,14 +478,31 @@ namespace HoldfastModdingLauncher
             _loginButton.FlatAppearance.BorderSize = 1;
             _loginButton.Click += LoginButton_Click;
             contentPanel.Controls.Add(_loginButton);
-            
+
+            _adminPanelButton = new Button
+            {
+                Text = "Admin",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Size = new Size(70, 26),
+                Location = new Point(400, 580),
+                BackColor = DarkPanel,
+                ForeColor = AccentMagenta,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand,
+                Visible = false
+            };
+            _adminPanelButton.FlatAppearance.BorderColor = AccentMagenta;
+            _adminPanelButton.FlatAppearance.BorderSize = 1;
+            _adminPanelButton.Click += AdminPanelButton_Click;
+            contentPanel.Controls.Add(_adminPanelButton);
+
             _loginStatusLabel = new Label
             {
                 Text = "○ Not logged in",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextGray,
                 AutoSize = true,
-                Location = new Point(330, 595),
+                Location = new Point(25, 612),
                 BackColor = Color.Transparent
             };
             contentPanel.Controls.Add(_loginStatusLabel);
@@ -640,11 +683,12 @@ namespace HoldfastModdingLauncher
             return Path.Combine(appDataFolder, LOGIN_TOKEN_FILE);
         }
         
-        private void WriteTokenToAllLocations(string content)
+        private void WriteTokenToAllLocations(string content, string clientName = null)
         {
-            // Write to AppData (primary location) - uses secure token for launcher verification
+            // Write to AppData (primary location) - secure token + client name for launcher verification
             string primaryPath = GetTokenFilePath();
-            File.WriteAllText(primaryPath, content);
+            string primaryContent = !string.IsNullOrEmpty(clientName) ? $"{content}|{clientName}" : content;
+            File.WriteAllText(primaryPath, primaryContent);
             
             // Also try to write to the game's BepInEx folder if game path is known
             // IMPORTANT: Write the simple "MASTER_ACCESS_GRANTED" format for the mod to detect
@@ -715,33 +759,62 @@ namespace HoldfastModdingLauncher
             catch { }
         }
         
-        private void CheckExistingLogin()
+        private async void CheckExistingLogin()
         {
+            // Try API session restore first
+            if (_apiClient.IsConfigured)
+            {
+                try
+                {
+                    bool restored = await _apiClient.TryRestoreSessionAsync();
+                    if (restored)
+                    {
+                        string displayName = _apiClient.CurrentUser?.DisplayName ?? _apiClient.CurrentUser?.Username ?? "User";
+                        _isMasterLoggedIn = true;
+                        _loggedInClientName = displayName;
+                        UpdateLoginStatus(true);
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning($"API session restore failed: {ex.Message}");
+                }
+            }
+
+            // Fallback: check local token file
             try
             {
                 string tokenPath = GetTokenFilePath();
                 if (File.Exists(tokenPath))
                 {
-                    // Token exists - verify it's valid for this machine
-                    string token = File.ReadAllText(tokenPath).Trim();
+                    string rawContent = File.ReadAllText(tokenPath).Trim();
                     
-                    // Support old format for backwards compatibility (one-time migration)
+                    string token = rawContent;
+                    string clientName = null;
+                    int separatorIndex = rawContent.LastIndexOf('|');
+                    if (separatorIndex > 0)
+                    {
+                        token = rawContent.Substring(0, separatorIndex);
+                        clientName = rawContent.Substring(separatorIndex + 1);
+                    }
+                    
                     if (token == "MASTER_ACCESS_GRANTED")
                     {
-                        // Upgrade to new secure token
                         string secureToken = CreateSecureToken();
-                        WriteTokenToAllLocations(secureToken);
+                        WriteTokenToAllLocations(secureToken, clientName);
                         _isMasterLoggedIn = true;
+                        _loggedInClientName = clientName;
                         UpdateLoginStatus(true);
                     }
                     else if (VerifySecureToken(token))
                     {
                         _isMasterLoggedIn = true;
+                        _loggedInClientName = clientName;
                         UpdateLoginStatus(true);
                     }
                     else
                     {
-                        // Invalid token - delete it
                         DeleteTokenFromAllLocations();
                     }
                 }
@@ -821,37 +894,68 @@ namespace HoldfastModdingLauncher
             return false;
         }
         
-        private void PerformMasterLogin()
+        private async void PerformMasterLogin()
         {
+            string username = _loginUsernameBox.Text;
             string password = _loginPasswordBox.Text;
-            
-            // Hash the input password and compare to stored hash
-            string inputHash = ComputePasswordHash(password);
-            
-            if (inputHash == PASSWORD_HASH)
+
+            if (_loginUsernameBox.ForeColor == TextGray)
+                username = string.Empty;
+
+            // Try API-based login first
+            if (_apiClient.IsConfigured && !string.IsNullOrEmpty(username))
             {
-                // Success - write secure token file
+                _loginStatusLabel.Text = "Connecting...";
+                _loginStatusLabel.ForeColor = AccentCyan;
+                _loginButton.Enabled = false;
+
+                var (success, error) = await _apiClient.LoginAsync(username, password);
+                _loginButton.Enabled = true;
+
+                if (success)
+                {
+                    string displayName = _apiClient.CurrentUser?.DisplayName ?? _apiClient.CurrentUser?.Username ?? username;
+                    string secureToken = CreateSecureToken();
+                    WriteTokenToAllLocations(secureToken, displayName);
+                    _isMasterLoggedIn = true;
+                    _loggedInClientName = displayName;
+                    UpdateLoginStatus(true);
+                    _loginPasswordBox.Text = "";
+                    _loginUsernameBox.Text = "";
+                    return;
+                }
+                else
+                {
+                    Logger.LogWarning($"API login failed: {error}, trying offline fallback...");
+                }
+            }
+
+            // Fallback: hash-based offline login
+            string inputHash = ComputePasswordHash(password);
+            if (MASTER_LOGINS.TryGetValue(inputHash, out string clientName))
+            {
                 try
                 {
                     string secureToken = CreateSecureToken();
-                    WriteTokenToAllLocations(secureToken);
+                    WriteTokenToAllLocations(secureToken, clientName);
                     _isMasterLoggedIn = true;
+                    _loggedInClientName = clientName;
                     UpdateLoginStatus(true);
                     _loginPasswordBox.Text = "";
-                    ShowCustomMessage("Master login successful!\n\nYou now have admin access on all servers without RC login.", 
+                    _loginUsernameBox.Text = "";
+                    ShowCustomMessage($"Welcome back, {clientName}!\n\nOffline login successful. Connect to the mod server for full access.",
                         "Login Successful", MessageBoxIcon.Information);
                 }
                 catch (Exception ex)
                 {
-                    ShowCustomMessage($"Failed to save login token: {ex.Message}", 
+                    ShowCustomMessage($"Failed to save login token: {ex.Message}",
                         "Error", MessageBoxIcon.Error);
                 }
             }
             else
             {
-                // Failed
                 _loginPasswordBox.Text = "";
-                _loginStatusLabel.Text = "✗ Invalid password";
+                _loginStatusLabel.Text = "✗ Invalid credentials";
                 _loginStatusLabel.ForeColor = Color.Red;
             }
         }
@@ -875,12 +979,16 @@ namespace HoldfastModdingLauncher
         {
             if (loggedIn)
             {
-                _loginStatusLabel.Text = "✓ Master access granted";
+                string displayName = !string.IsNullOrEmpty(_loggedInClientName) ? _loggedInClientName : "Unknown";
+                bool isApiMaster = _apiClient?.IsMaster == true;
+                string source = _apiClient?.IsAuthenticated == true ? "Server" : "Offline";
+                _loginStatusLabel.Text = $"✓ {displayName} ({source})";
                 _loginStatusLabel.ForeColor = SuccessGreen;
                 _loginButton.Text = "Logout";
                 _loginPasswordBox.Enabled = false;
-                
-                // Show debug console option for master users
+                _loginUsernameBox.Enabled = false;
+                _adminPanelButton.Visible = isApiMaster;
+
                 if (_debugModeCheckBox != null)
                 {
                     _debugModeCheckBox.Visible = true;
@@ -889,10 +997,13 @@ namespace HoldfastModdingLauncher
             }
             else
             {
+                _loggedInClientName = null;
                 _loginStatusLabel.Text = "○ Not logged in";
                 _loginStatusLabel.ForeColor = TextGray;
                 _loginButton.Text = "Login";
                 _loginPasswordBox.Enabled = true;
+                _loginUsernameBox.Enabled = true;
+                _adminPanelButton.Visible = false;
                 
                 // Hide and uncheck debug console option
                 if (_debugModeCheckBox != null)
@@ -907,14 +1018,31 @@ namespace HoldfastModdingLauncher
         {
             try
             {
+                _apiClient?.Logout();
                 DeleteTokenFromAllLocations();
                 _isMasterLoggedIn = false;
+                _loggedInClientName = null;
                 UpdateLoginStatus(false);
             }
             catch (Exception ex)
             {
-                ShowCustomMessage($"Failed to logout: {ex.Message}", 
+                ShowCustomMessage($"Failed to logout: {ex.Message}",
                     "Error", MessageBoxIcon.Error);
+            }
+        }
+
+        private void AdminPanelButton_Click(object sender, EventArgs e)
+        {
+            if (!_apiClient.IsAuthenticated || !_apiClient.IsMaster)
+            {
+                ShowCustomMessage("Admin access requires a master account connected to the mod server.",
+                    "Access Denied", MessageBoxIcon.Warning);
+                return;
+            }
+
+            using (var adminForm = new AdminPanelForm(_apiClient))
+            {
+                adminForm.ShowDialog(this);
             }
         }
 

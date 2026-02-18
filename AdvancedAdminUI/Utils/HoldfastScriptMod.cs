@@ -110,6 +110,17 @@ namespace AdvancedAdminUI.Utils
             try
             {
                 ColoredLogger.Log(ColoredLogger.BrightYellow, $"[AdminEventPatches] ★ Captured login method call with {__args?.Length ?? 0} args");
+                
+                // Try to extract player ID from args and set the captured flag
+                if (__args != null && __args.Length >= 1)
+                {
+                    if (__args[0] is int playerId)
+                    {
+                        CapturedRCLogin = true;
+                        CapturedRCLoginPlayerId = playerId;
+                        ColoredLogger.Log(ColoredLogger.BrightGreen, $"[AdminEventPatches] Captured RC login for player ID: {playerId}");
+                    }
+                }
             }
             catch { }
         }

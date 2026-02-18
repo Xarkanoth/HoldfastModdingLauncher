@@ -58,11 +58,14 @@ namespace HoldfastModdingLauncher
             LoadConfig();
             InitializeUI();
             CheckDownloadedVideos();
+            
+            // Fetch available videos from GitHub (must be after InitializeUI so _statusLabel exists)
+            _ = LoadVideosFromGitHubAsync();
         }
 
         private void InitializeVideos()
         {
-            // Start with default option
+            // Start with default option (GitHub videos are loaded after UI is initialized)
             _videos = new List<SplashVideoOption>
             {
                 new SplashVideoOption
@@ -74,21 +77,21 @@ namespace HoldfastModdingLauncher
                     LocalFileName = ""
                 }
             };
-            
-            // Fetch videos from GitHub asynchronously
-            _ = LoadVideosFromGitHubAsync();
         }
         
         private async Task LoadVideosFromGitHubAsync()
         {
             try
             {
-                _statusLabel.Text = "Loading videos from GitHub...";
-                _statusLabel.Visible = true;
+                if (_statusLabel != null)
+                {
+                    _statusLabel.Text = "Loading videos from GitHub...";
+                    _statusLabel.Visible = true;
+                }
                 
-                // Use GitHub API to list contents of SplashVideos directory
-                string apiUrl = "https://api.github.com/repos/Xarkanoth/HoldfastMods/contents/SplashVideos";
-                string response = await _httpClient.GetStringAsync(apiUrl);
+                // Use raw.githubusercontent.com to avoid GitHub API rate limits (60/hr unauthenticated)
+                string manifestUrl = "https://raw.githubusercontent.com/Xarkanoth/HoldfastMods/main/SplashVideos/videos.json";
+                string response = await _httpClient.GetStringAsync(manifestUrl);
                 
                 using (JsonDocument doc = JsonDocument.Parse(response))
                 {
@@ -98,60 +101,55 @@ namespace HoldfastModdingLauncher
                     {
                         foreach (var item in root.EnumerateArray())
                         {
-                            // Only process files (not directories)
-                            if (item.TryGetProperty("type", out var typeElement) && 
-                                typeElement.GetString() == "file")
+                            string fileName = item.TryGetProperty("name", out var nameElement) 
+                                ? nameElement.GetString() ?? "" 
+                                : "";
+                            
+                            if (string.IsNullOrEmpty(fileName))
+                                continue;
+                            
+                            string displayName = item.TryGetProperty("displayName", out var displayElement) 
+                                ? displayElement.GetString() ?? Path.GetFileNameWithoutExtension(fileName)
+                                : Path.GetFileNameWithoutExtension(fileName);
+                            
+                            string description = item.TryGetProperty("description", out var descElement) 
+                                ? descElement.GetString() ?? ""
+                                : $"Custom splash screen video: {displayName}";
+                            
+                            string downloadUrl = item.TryGetProperty("downloadUrl", out var urlElement) 
+                                ? urlElement.GetString() ?? "" 
+                                : "";
+                            
+                            string videoId = Path.GetFileNameWithoutExtension(fileName)
+                                .ToLowerInvariant()
+                                .Replace(" ", "_")
+                                .Replace("-", "_");
+                            
+                            var video = new SplashVideoOption
                             {
-                                string fileName = item.TryGetProperty("name", out var nameElement) 
-                                    ? nameElement.GetString() ?? "" 
-                                    : "";
-                                
-                                // Only include video files
-                                string extension = Path.GetExtension(fileName).ToLowerInvariant();
-                                if (extension == ".mp4" || extension == ".mov" || extension == ".webm" || extension == ".ogv")
-                                {
-                                    string downloadUrl = item.TryGetProperty("download_url", out var urlElement) 
-                                        ? urlElement.GetString() ?? "" 
-                                        : "";
-                                    
-                                    // Create a clean ID from filename (remove extension, make lowercase, replace spaces/hyphens with underscores)
-                                    string videoId = Path.GetFileNameWithoutExtension(fileName)
-                                        .ToLowerInvariant()
-                                        .Replace(" ", "_")
-                                        .Replace("-", "_");
-                                    
-                                    // Create display name (remove extension, capitalize words)
-                                    string displayName = Path.GetFileNameWithoutExtension(fileName)
-                                        .Replace("_", " ")
-                                        .Replace("-", " ");
-                                    // Capitalize first letter of each word
-                                    displayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(displayName);
-                                    
-                                    var video = new SplashVideoOption
-                                    {
-                                        Id = videoId,
-                                        Name = displayName,
-                                        Description = $"Custom splash screen video: {displayName}",
-                                        Url = downloadUrl,
-                                        LocalFileName = fileName
-                                    };
-                                    
-                                    // Check if already downloaded
-                                    string localPath = Path.Combine(_splashVideosPath, fileName);
-                                    video.IsDownloaded = File.Exists(localPath);
-                                    
-                                    _videos.Add(video);
-                                }
-                            }
+                                Id = videoId,
+                                Name = displayName,
+                                Description = description,
+                                Url = downloadUrl,
+                                LocalFileName = fileName
+                            };
+                            
+                            string localPath = Path.Combine(_splashVideosPath, fileName);
+                            video.IsDownloaded = File.Exists(localPath);
+                            
+                            _videos.Add(video);
                         }
                         
-                        // Refresh UI on main thread
-                        this.Invoke((MethodInvoker)delegate
+                        if (!this.IsDisposed && this.IsHandleCreated)
                         {
-                            RefreshVideoList();
-                            CheckDownloadedVideos();
-                            _statusLabel.Visible = false;
-                        });
+                            this.Invoke((MethodInvoker)delegate
+                            {
+                                RefreshVideoList();
+                                CheckDownloadedVideos();
+                                if (_statusLabel != null)
+                                    _statusLabel.Visible = false;
+                            });
+                        }
                     }
                 }
             }
@@ -159,14 +157,23 @@ namespace HoldfastModdingLauncher
             {
                 Core.Logger.LogError($"Failed to load videos from GitHub: {ex.Message}");
                 
-                // On error, refresh UI anyway (with just default option)
-                this.Invoke((MethodInvoker)delegate
+                try
                 {
-                    RefreshVideoList();
-                    _statusLabel.Text = "Failed to load videos from GitHub";
-                    _statusLabel.ForeColor = Color.Orange;
-                    _statusLabel.Visible = true;
-                });
+                    if (!this.IsDisposed && this.IsHandleCreated)
+                    {
+                        this.Invoke((MethodInvoker)delegate
+                        {
+                            RefreshVideoList();
+                            if (_statusLabel != null)
+                            {
+                                _statusLabel.Text = $"Failed to load videos: {ex.Message}";
+                                _statusLabel.ForeColor = Color.Orange;
+                                _statusLabel.Visible = true;
+                            }
+                        });
+                    }
+                }
+                catch { }
             }
         }
 

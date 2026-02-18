@@ -97,7 +97,7 @@ namespace AdvancedAdminUI
         }
     }
 
-    [BepInPlugin("com.xarkanoth.advancedadminui", "Advanced Admin UI", "1.0.57")]
+    [BepInPlugin("com.xarkanoth.advancedadminui", "Advanced Admin UI", "1.0.71")]
     [BepInDependency("com.xarkanoth.launchercoremod", BepInDependency.DependencyFlags.HardDependency)]
     public class AdvancedAdminUIMod : BaseUnityPlugin
     {
@@ -119,6 +119,8 @@ namespace AdvancedAdminUI
         
         private readonly Dictionary<string, IAdminFeature> _features = new Dictionary<string, IAdminFeature>();
         private readonly object _featuresLock = new object();
+        private List<IAdminFeature> _featuresSnapshotCache = new List<IAdminFeature>();
+        private bool _featuresSnapshotDirty = true;
         private CavalryVisualizationFeature _cavalryFeature;
         private RamboIndicatorFeature _ramboFeature;
         private AFKIndicatorFeature _afkFeature;
@@ -149,6 +151,12 @@ namespace AdvancedAdminUI
         // Separate runner GameObject to ensure mod keeps running
         private GameObject _runnerObject;
         private PluginRunner _runner;
+        
+        /// <summary>
+        /// The active PluginRunner MonoBehaviour. Use this to start coroutines 
+        /// instead of Instance, since the plugin component may be disabled by BepInEx.
+        /// </summary>
+        public static PluginRunner Runner { get; private set; }
 
         void Awake()
         {
@@ -177,6 +185,7 @@ namespace AdvancedAdminUI
                 DontDestroyOnLoad(_runnerObject);
                 _runner = _runnerObject.AddComponent<PluginRunner>();
                 _runner.Initialize();
+                Runner = _runner;
                 
                 Log.LogInfo("[Awake] Created persistent runner GameObject");
                 
@@ -448,6 +457,7 @@ namespace AdvancedAdminUI
             lock (_featuresLock)
             {
                 _features.Clear();
+                _featuresSnapshotDirty = true;
             }
             
             // Small delay to ensure cleanup completes (non-blocking)
@@ -586,12 +596,8 @@ namespace AdvancedAdminUI
                 catch { }
             }
 
-            // Update all enabled features (create snapshot to avoid modification during enumeration)
-            List<IAdminFeature> featuresSnapshot;
-            lock (_featuresLock)
-            {
-                featuresSnapshot = new List<IAdminFeature>(_features.Values);
-            }
+            // Update all enabled features (use cached snapshot, only rebuild when features change)
+            List<IAdminFeature> featuresSnapshot = GetFeaturesSnapshot();
             
             foreach (var feature in featuresSnapshot)
             {
@@ -604,6 +610,22 @@ namespace AdvancedAdminUI
                     catch { }
                 }
             }
+        }
+        
+        /// <summary>
+        /// Returns a cached snapshot of features. Only rebuilds when features are added/removed.
+        /// </summary>
+        private List<IAdminFeature> GetFeaturesSnapshot()
+        {
+            if (_featuresSnapshotDirty)
+            {
+                lock (_featuresLock)
+                {
+                    _featuresSnapshotCache = new List<IAdminFeature>(_features.Values);
+                    _featuresSnapshotDirty = false;
+                }
+            }
+            return _featuresSnapshotCache;
         }
 
         /// <summary>
@@ -625,12 +647,8 @@ namespace AdvancedAdminUI
                 catch { }
             }
             
-            // Forward GUI calls to enabled features (create snapshot to avoid modification during enumeration)
-            List<IAdminFeature> featuresSnapshot;
-            lock (_featuresLock)
-            {
-                featuresSnapshot = new List<IAdminFeature>(_features.Values);
-            }
+            // Forward GUI calls to enabled features (use cached snapshot)
+            List<IAdminFeature> featuresSnapshot = GetFeaturesSnapshot();
             
             foreach (var feature in featuresSnapshot)
             {
@@ -685,6 +703,7 @@ namespace AdvancedAdminUI
             lock (_featuresLock)
             {
                 _features[key] = feature;
+                _featuresSnapshotDirty = true;
             }
         }
 
