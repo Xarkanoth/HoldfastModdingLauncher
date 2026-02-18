@@ -20,7 +20,7 @@ namespace HoldfastModdingLauncher.Core
         public bool CheckForModUpdatesOnStartup { get; set; } = true;
 
         // Self-hosted mod server
-        public string ModServerUrl { get; set; } = string.Empty;
+        public string ModServerUrl { get; set; } = "http://138.201.59.227:20102";
 
         private static LauncherSettings? _instance;
         public static LauncherSettings Instance => _instance ??= Load();

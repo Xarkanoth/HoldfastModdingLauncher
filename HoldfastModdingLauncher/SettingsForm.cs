@@ -17,7 +17,7 @@ namespace HoldfastModdingLauncher
         private Button _cancelButton;
         private CheckBox _autoUpdateCheckBox;
         private Button _checkUpdatesButton;
-        private TextBox _serverUrlTextBox;
+        
         
         // Dark theme colors (matching MainForm)
         private static readonly Color DarkBg = Color.FromArgb(18, 18, 22);
@@ -44,7 +44,7 @@ namespace HoldfastModdingLauncher
             this.SuspendLayout();
 
             int formWidth = 550;
-            int formHeight = 400;
+            int formHeight = 330;
 
             // Form properties - borderless dark style
             this.Text = "Settings";
@@ -218,43 +218,12 @@ namespace HoldfastModdingLauncher
             };
             contentPanel.Controls.Add(versionLabel);
 
-            // Mod Server section
-            var serverLabel = new Label
-            {
-                Text = "MOD SERVER",
-                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                ForeColor = AccentMagenta,
-                Location = new Point(20, 195),
-                AutoSize = true,
-                BackColor = Color.Transparent
-            };
-            contentPanel.Controls.Add(serverLabel);
-
-            _serverUrlTextBox = new TextBox
-            {
-                Location = new Point(20, 220),
-                Size = new Size(500, 28),
-                Text = LauncherSettings.Instance.ModServerUrl,
-                Font = new Font("Segoe UI", 10F),
-                BackColor = DarkPanel,
-                ForeColor = TextLight,
-                BorderStyle = BorderStyle.FixedSingle
-            };
-            _serverUrlTextBox.GotFocus += (s, e) => { if (string.IsNullOrEmpty(_serverUrlTextBox.Text)) _serverUrlTextBox.ForeColor = TextLight; };
-            if (string.IsNullOrEmpty(_serverUrlTextBox.Text))
-            {
-                _serverUrlTextBox.ForeColor = TextGray;
-                _serverUrlTextBox.Text = "http://your-server-ip:port";
-                _serverUrlTextBox.GotFocus += (s, e) => { if (_serverUrlTextBox.Text == "http://your-server-ip:port") { _serverUrlTextBox.Text = ""; _serverUrlTextBox.ForeColor = TextLight; } };
-            }
-            contentPanel.Controls.Add(_serverUrlTextBox);
-
             // Save button
             _saveButton = new Button
             {
                 Text = "✓  Save",
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                Location = new Point(formWidth - 200, 280),
+                Location = new Point(formWidth - 200, 210),
                 Size = new Size(85, 38),
                 BackColor = DarkPanel,
                 ForeColor = SuccessGreen,
@@ -273,7 +242,7 @@ namespace HoldfastModdingLauncher
             {
                 Text = "Cancel",
                 Font = new Font("Segoe UI", 10F),
-                Location = new Point(formWidth - 105, 280),
+                Location = new Point(formWidth - 105, 210),
                 Size = new Size(85, 38),
                 BackColor = DarkPanel,
                 ForeColor = TextGray,
@@ -367,9 +336,6 @@ namespace HoldfastModdingLauncher
 
             // Save settings
             LauncherSettings.Instance.CheckForUpdatesOnStartup = _autoUpdateCheckBox.Checked;
-            string serverUrl = _serverUrlTextBox.Text.Trim();
-            if (serverUrl == "http://your-server-ip:port") serverUrl = string.Empty;
-            LauncherSettings.Instance.ModServerUrl = serverUrl;
             LauncherSettings.Instance.Save();
 
             // Settings saved
