@@ -369,21 +369,67 @@ namespace HoldfastModdingLauncher.Services
         private string CreateUpdateScript(string sourcePath, string targetPath, string version)
         {
             string scriptPath = Path.Combine(Path.GetTempPath(), "update_launcher.bat");
-            string exePath = Path.Combine(targetPath, "HoldfastModdingLauncher.exe");
+            string logPath = Path.Combine(Path.GetTempPath(), "launcher_update.log");
+            string exeName = "HoldfastModdingLauncher.exe";
+            string exePath = Path.Combine(targetPath, exeName);
 
             string script = $@"@echo off
+setlocal enabledelayedexpansion
+
+set ""LOGFILE={logPath}""
+echo [%date% %time%] Update started for v{version} > ""%LOGFILE%""
 echo Updating Holdfast Modding Launcher to v{version}...
 echo Please wait...
 
-REM Wait for launcher to close
-timeout /t 2 /nobreak >nul
+REM Wait for launcher process to fully exit (up to 30 seconds)
+echo [%date% %time%] Waiting for {exeName} to exit... >> ""%LOGFILE%""
+set ATTEMPTS=0
+:waitloop
+tasklist /FI ""IMAGENAME eq {exeName}"" 2>NUL | find /I ""{exeName}"" >NUL
+if !errorlevel! == 0 (
+    set /a ATTEMPTS+=1
+    if !ATTEMPTS! GEQ 30 (
+        echo [%date% %time%] WARNING: Launcher still running after 30s, forcing close >> ""%LOGFILE%""
+        taskkill /F /IM ""{exeName}"" >NUL 2>&1
+        timeout /t 2 /nobreak >NUL
+        goto docopy
+    )
+    timeout /t 1 /nobreak >NUL
+    goto waitloop
+)
+echo [%date% %time%] Launcher process exited after !ATTEMPTS!s >> ""%LOGFILE%""
 
-REM Copy new files
-xcopy /s /y /q ""{sourcePath}\*"" ""{targetPath}""
+REM Extra delay for OneDrive / antivirus file locks to release
+timeout /t 3 /nobreak >NUL
 
-REM Cleanup
+:docopy
+echo [%date% %time%] Copying files from ""{sourcePath}"" to ""{targetPath}"" >> ""%LOGFILE%""
+
+REM Use robocopy for reliable file replacement (/MIR mirrors, /R:5 retries, /W:2 wait 2s between retries)
+robocopy ""{sourcePath}"" ""{targetPath}"" /E /R:5 /W:2 /NFL /NDL /NJH /NJS >> ""%LOGFILE%"" 2>&1
+set ROBO_EXIT=!errorlevel!
+
+REM robocopy exit codes: 0-7 are success, 8+ are errors
+if !ROBO_EXIT! GEQ 8 (
+    echo [%date% %time%] ERROR: robocopy failed with exit code !ROBO_EXIT!, falling back to xcopy >> ""%LOGFILE%""
+    xcopy /s /y /q ""{sourcePath}\*"" ""{targetPath}\"" >> ""%LOGFILE%"" 2>&1
+    echo [%date% %time%] xcopy exit code: !errorlevel! >> ""%LOGFILE%""
+) else (
+    echo [%date% %time%] robocopy completed with exit code !ROBO_EXIT! >> ""%LOGFILE%""
+)
+
+REM Verify the new version.txt was written
+if exist ""{Path.Combine(targetPath, "version.txt")}"" (
+    set /p NEWVER=<""{Path.Combine(targetPath, "version.txt")}""
+    echo [%date% %time%] version.txt now contains: !NEWVER! >> ""%LOGFILE%""
+) else (
+    echo [%date% %time%] WARNING: version.txt not found after copy >> ""%LOGFILE%""
+)
+
+REM Cleanup temp extraction folder
 rmdir /s /q ""{sourcePath}"" 2>nul
 
+echo [%date% %time%] Update complete, restarting launcher... >> ""%LOGFILE%""
 echo Update complete!
 echo Restarting launcher...
 
@@ -395,6 +441,7 @@ del ""%~f0""
 ";
 
             File.WriteAllText(scriptPath, script);
+            Logger.LogInfo($"Update script created at: {scriptPath}, log at: {logPath}");
             return scriptPath;
         }
 

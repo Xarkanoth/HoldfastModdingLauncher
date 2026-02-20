@@ -28,6 +28,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Version file - must be in output directory for runtime version detection -->
+    <None Include="version.txt" Condition="Exists('version.txt')">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <!-- Application Icon - Embedded as resource and used as executable icon -->
     <None Include="Resources\Xark.ico" Condition="Exists('Resources\Xark.ico')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

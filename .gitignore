@@ -5,6 +5,7 @@
 !.gitignore
 !README.md
 !mod-registry.json
+!latest-version.json
 
 # GitHub releases handle actual distribution
 # Source code stays local for development
