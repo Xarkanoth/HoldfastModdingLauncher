@@ -1,6 +1,6 @@
 {
-  "version": "1.0.187",
-  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.187/HoldfastModdingLauncher-v1.0.187.zip",
-  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.187",
-  "releaseNotes": "Self-hosted mod server integration, robust auto-updater, and admin panel."
+  "version": "1.0.188",
+  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.188/HoldfastModdingLauncher-v1.0.188.zip",
+  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.188",
+  "releaseNotes": "Fix mod browser to show all server mods including private ones."
 }
