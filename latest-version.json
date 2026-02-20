@@ -1,6 +1,6 @@
 {
-  "version": "1.0.190",
-  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.190/HoldfastModdingLauncher-v1.0.190.zip",
-  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.190",
-  "releaseNotes": "Larger admin panel, visible close button, login gate icon fix."
+  "version": "1.0.191",
+  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.191/HoldfastModdingLauncher-v1.0.191.zip",
+  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.191",
+  "releaseNotes": "Fix admin panel layout - all controls now properly visible."
 }

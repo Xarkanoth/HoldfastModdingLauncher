@@ -59,8 +59,9 @@ namespace HoldfastModdingLauncher
         private void InitializeComponent()
         {
             SuspendLayout();
+            AutoScaleMode = AutoScaleMode.None;
             Text = "Admin Panel";
-            Size = new Size(950, 700);
+            ClientSize = new Size(900, 620);
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.None;
             BackColor = DarkBg;
@@ -70,7 +71,7 @@ namespace HoldfastModdingLauncher
             var titleBar = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 36,
+                Height = 40,
                 BackColor = Color.FromArgb(12, 12, 16)
             };
             titleBar.MouseDown += (s, e) => { _isDragging = true; _dragOffset = e.Location; };
@@ -84,7 +85,7 @@ namespace HoldfastModdingLauncher
                 Font = new Font("Segoe UI", 11F, FontStyle.Bold),
                 ForeColor = AccentMagenta,
                 AutoSize = true,
-                Location = new Point(12, 8)
+                Location = new Point(12, 10)
             };
             titleBar.Controls.Add(titleLabel);
 
@@ -92,20 +93,18 @@ namespace HoldfastModdingLauncher
             {
                 Text = "✕  Close",
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                Size = new Size(90, 36),
-                Location = new Point(Width - 90, 0),
+                Size = new Size(100, 40),
+                Dock = DockStyle.Right,
                 FlatStyle = FlatStyle.Flat,
                 ForeColor = TextLight,
                 BackColor = Color.FromArgb(140, 30, 30),
-                Cursor = Cursors.Hand,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right
+                Cursor = Cursors.Hand
             };
             closeButton.FlatAppearance.BorderSize = 0;
             closeButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(200, 50, 50);
             closeButton.Click += (s, e) => Close();
             titleBar.Controls.Add(closeButton);
 
-            // Visible border around the form
             Paint += (s, e) =>
             {
                 using (var pen = new Pen(Color.FromArgb(60, 60, 70), 2))
@@ -114,10 +113,9 @@ namespace HoldfastModdingLauncher
 
             _tabControl = new TabControl
             {
-                Location = new Point(10, 42),
-                Size = new Size(930, 648),
-                Font = new Font("Segoe UI", 10F),
-                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
+                Location = new Point(4, 44),
+                Size = new Size(ClientSize.Width - 8, ClientSize.Height - 48),
+                Font = new Font("Segoe UI", 10F)
             };
             Controls.Add(_tabControl);
 
@@ -139,47 +137,52 @@ namespace HoldfastModdingLauncher
             var tab = new TabPage("Users") { BackColor = DarkBg };
             _tabControl.TabPages.Add(tab);
 
+            int pad = 8;
+            int btnH = 30;
+            int statusH = 20;
+            int bottomArea = btnH + statusH + pad * 3;
+
             _usersListView = new ListView
             {
-                Location = new Point(10, 10),
-                Size = new Size(890, 490),
+                Location = new Point(pad, pad),
                 View = View.Details,
                 FullRowSelect = true,
                 GridLines = true,
                 BackColor = DarkPanel,
                 ForeColor = TextLight,
-                Font = new Font("Segoe UI", 9F),
-                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
+                Font = new Font("Segoe UI", 9F)
             };
-            _usersListView.Columns.Add("ID", 50);
-            _usersListView.Columns.Add("Username", 140);
-            _usersListView.Columns.Add("Display Name", 140);
-            _usersListView.Columns.Add("Role", 80);
-            _usersListView.Columns.Add("Active", 60);
-            _usersListView.Columns.Add("Last Login", 160);
-            _usersListView.Columns.Add("Created", 160);
+            _usersListView.Columns.Add("ID", 45);
+            _usersListView.Columns.Add("Username", 120);
+            _usersListView.Columns.Add("Display Name", 120);
+            _usersListView.Columns.Add("Role", 70);
+            _usersListView.Columns.Add("Active", 55);
+            _usersListView.Columns.Add("Last Login", 140);
+            _usersListView.Columns.Add("Created", 140);
             tab.Controls.Add(_usersListView);
 
-            int btnY = 510;
-            _createUserButton = CreateStyledButton("+ Create User", new Point(10, btnY), AccentCyan);
-            _createUserButton.Size = new Size(130, 32);
+            _createUserButton = CreateStyledButton("+ Create User", Point.Empty, AccentCyan);
+            _createUserButton.Size = new Size(120, btnH);
             _createUserButton.Click += CreateUserButton_Click;
             tab.Controls.Add(_createUserButton);
 
-            _editUserButton = CreateStyledButton("Edit User", new Point(150, btnY), AccentCyan);
+            _editUserButton = CreateStyledButton("Edit User", Point.Empty, AccentCyan);
+            _editUserButton.Size = new Size(90, btnH);
             _editUserButton.Click += EditUserButton_Click;
             tab.Controls.Add(_editUserButton);
 
-            _resetPasswordButton = CreateStyledButton("Reset Password", new Point(280, btnY), AccentMagenta);
-            _resetPasswordButton.Size = new Size(140, 32);
+            _resetPasswordButton = CreateStyledButton("Reset Password", Point.Empty, AccentMagenta);
+            _resetPasswordButton.Size = new Size(130, btnH);
             _resetPasswordButton.Click += ResetPasswordButton_Click;
             tab.Controls.Add(_resetPasswordButton);
 
-            _deactivateUserButton = CreateStyledButton("Deactivate", new Point(430, btnY), DangerRed);
+            _deactivateUserButton = CreateStyledButton("Deactivate", Point.Empty, DangerRed);
+            _deactivateUserButton.Size = new Size(100, btnH);
             _deactivateUserButton.Click += DeactivateUserButton_Click;
             tab.Controls.Add(_deactivateUserButton);
 
-            var refreshButton = CreateStyledButton("Refresh", new Point(560, btnY), TextGray);
+            var refreshButton = CreateStyledButton("Refresh", Point.Empty, TextGray);
+            refreshButton.Size = new Size(80, btnH);
             refreshButton.Click += async (s, e) => await LoadUsersAsync();
             tab.Controls.Add(refreshButton);
 
@@ -188,11 +191,27 @@ namespace HoldfastModdingLauncher
                 Text = "",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextGray,
-                Location = new Point(10, btnY + 38),
-                Size = new Size(890, 20),
+                Size = new Size(400, statusH),
                 BackColor = Color.Transparent
             };
             tab.Controls.Add(_usersStatusLabel);
+
+            tab.Layout += (s, e) =>
+            {
+                int w = tab.ClientSize.Width;
+                int h = tab.ClientSize.Height;
+                int btnY = h - btnH - statusH - pad * 2;
+
+                _usersListView.Size = new Size(w - pad * 2, btnY - pad * 2);
+
+                _createUserButton.Location = new Point(pad, btnY);
+                _editUserButton.Location = new Point(pad + 128, btnY);
+                _resetPasswordButton.Location = new Point(pad + 226, btnY);
+                _deactivateUserButton.Location = new Point(pad + 364, btnY);
+                refreshButton.Location = new Point(pad + 472, btnY);
+                _usersStatusLabel.Location = new Point(pad, btnY + btnH + pad);
+                _usersStatusLabel.Size = new Size(w - pad * 2, statusH);
+            };
         }
 
         private async void CreateUserButton_Click(object sender, EventArgs e)
@@ -341,12 +360,14 @@ namespace HoldfastModdingLauncher
             var tab = new TabPage("Permissions") { BackColor = DarkBg };
             _tabControl.TabPages.Add(tab);
 
+            int pad = 8;
+
             var userLabel = new Label
             {
                 Text = "Select User:",
                 Font = new Font("Segoe UI", 10F),
                 ForeColor = TextLight,
-                Location = new Point(10, 15),
+                Location = new Point(pad, 15),
                 AutoSize = true
             };
             tab.Controls.Add(userLabel);
@@ -369,15 +390,14 @@ namespace HoldfastModdingLauncher
                 Text = "Accessible Mods:",
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
                 ForeColor = AccentCyan,
-                Location = new Point(10, 55),
+                Location = new Point(pad, 50),
                 AutoSize = true
             };
             tab.Controls.Add(modsLabel);
 
             _permModsList = new CheckedListBox
             {
-                Location = new Point(10, 80),
-                Size = new Size(400, 340),
+                Location = new Point(pad, 75),
                 BackColor = DarkPanel,
                 ForeColor = TextLight,
                 Font = new Font("Segoe UI", 10F),
@@ -386,8 +406,8 @@ namespace HoldfastModdingLauncher
             };
             tab.Controls.Add(_permModsList);
 
-            _savePermissionsButton = CreateStyledButton("Save Permissions", new Point(10, 430), SuccessGreen);
-            _savePermissionsButton.Size = new Size(160, 32);
+            _savePermissionsButton = CreateStyledButton("Save Permissions", Point.Empty, SuccessGreen);
+            _savePermissionsButton.Size = new Size(160, 30);
             _savePermissionsButton.Click += SavePermissionsButton_Click;
             tab.Controls.Add(_savePermissionsButton);
 
@@ -396,10 +416,20 @@ namespace HoldfastModdingLauncher
                 Text = "",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextGray,
-                Location = new Point(180, 436),
                 AutoSize = true
             };
             tab.Controls.Add(_permStatusLabel);
+
+            tab.Layout += (s, e) =>
+            {
+                int w = tab.ClientSize.Width;
+                int h = tab.ClientSize.Height;
+                int btnY = h - 40;
+
+                _permModsList.Size = new Size(w - pad * 2, btnY - 75 - pad);
+                _savePermissionsButton.Location = new Point(pad, btnY);
+                _permStatusLabel.Location = new Point(pad + 170, btnY + 6);
+            };
         }
 
         private async void SavePermissionsButton_Click(object sender, EventArgs e)
@@ -451,33 +481,34 @@ namespace HoldfastModdingLauncher
             var tab = new TabPage("Mods") { BackColor = DarkBg };
             _tabControl.TabPages.Add(tab);
 
+            int pad = 8;
+
             _modsListView = new ListView
             {
-                Location = new Point(10, 10),
-                Size = new Size(800, 400),
+                Location = new Point(pad, pad),
                 View = View.Details,
                 FullRowSelect = true,
                 GridLines = true,
                 BackColor = DarkPanel,
                 ForeColor = TextLight,
-                Font = new Font("Segoe UI", 9F),
-                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
+                Font = new Font("Segoe UI", 9F)
             };
-            _modsListView.Columns.Add("ID", 50);
-            _modsListView.Columns.Add("Mod Key", 160);
-            _modsListView.Columns.Add("Name", 180);
-            _modsListView.Columns.Add("Version", 80);
-            _modsListView.Columns.Add("Category", 100);
-            _modsListView.Columns.Add("Size", 80);
-            _modsListView.Columns.Add("Updated", 140);
+            _modsListView.Columns.Add("ID", 45);
+            _modsListView.Columns.Add("Mod Key", 140);
+            _modsListView.Columns.Add("Name", 150);
+            _modsListView.Columns.Add("Version", 70);
+            _modsListView.Columns.Add("Category", 90);
+            _modsListView.Columns.Add("Size", 70);
+            _modsListView.Columns.Add("Updated", 130);
             tab.Controls.Add(_modsListView);
 
-            _uploadModButton = CreateStyledButton("Upload Mod DLL", new Point(10, 420), AccentCyan);
-            _uploadModButton.Size = new Size(150, 32);
+            _uploadModButton = CreateStyledButton("Upload Mod DLL", Point.Empty, AccentCyan);
+            _uploadModButton.Size = new Size(140, 30);
             _uploadModButton.Click += UploadModButton_Click;
             tab.Controls.Add(_uploadModButton);
 
-            var refreshModsButton = CreateStyledButton("Refresh", new Point(170, 420), TextGray);
+            var refreshModsButton = CreateStyledButton("Refresh", Point.Empty, TextGray);
+            refreshModsButton.Size = new Size(80, 30);
             refreshModsButton.Click += async (s, e) => await LoadModsAsync();
             tab.Controls.Add(refreshModsButton);
 
@@ -486,10 +517,21 @@ namespace HoldfastModdingLauncher
                 Text = "",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextGray,
-                Location = new Point(300, 426),
                 AutoSize = true
             };
             tab.Controls.Add(_modsStatusLabel);
+
+            tab.Layout += (s, e) =>
+            {
+                int w = tab.ClientSize.Width;
+                int h = tab.ClientSize.Height;
+                int btnY = h - 40;
+
+                _modsListView.Size = new Size(w - pad * 2, btnY - pad * 2);
+                _uploadModButton.Location = new Point(pad, btnY);
+                refreshModsButton.Location = new Point(pad + 148, btnY);
+                _modsStatusLabel.Location = new Point(pad + 240, btnY + 6);
+            };
         }
 
         private async void UploadModButton_Click(object sender, EventArgs e)
@@ -540,28 +582,39 @@ namespace HoldfastModdingLauncher
             var tab = new TabPage("Audit Log") { BackColor = DarkBg };
             _tabControl.TabPages.Add(tab);
 
+            int pad = 8;
+
             _auditListView = new ListView
             {
-                Location = new Point(10, 10),
-                Size = new Size(800, 430),
+                Location = new Point(pad, pad),
                 View = View.Details,
                 FullRowSelect = true,
                 GridLines = true,
                 BackColor = DarkPanel,
                 ForeColor = TextLight,
-                Font = new Font("Segoe UI", 9F),
-                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
+                Font = new Font("Segoe UI", 9F)
             };
-            _auditListView.Columns.Add("ID", 50);
-            _auditListView.Columns.Add("Time", 160);
-            _auditListView.Columns.Add("User", 120);
-            _auditListView.Columns.Add("Action", 120);
-            _auditListView.Columns.Add("Details", 340);
+            _auditListView.Columns.Add("ID", 45);
+            _auditListView.Columns.Add("Time", 140);
+            _auditListView.Columns.Add("User", 100);
+            _auditListView.Columns.Add("Action", 110);
+            _auditListView.Columns.Add("Details", 300);
             tab.Controls.Add(_auditListView);
 
-            _refreshAuditButton = CreateStyledButton("Refresh", new Point(10, 450), TextGray);
+            _refreshAuditButton = CreateStyledButton("Refresh", Point.Empty, TextGray);
+            _refreshAuditButton.Size = new Size(80, 30);
             _refreshAuditButton.Click += async (s, e) => await LoadAuditAsync();
             tab.Controls.Add(_refreshAuditButton);
+
+            tab.Layout += (s, e) =>
+            {
+                int w = tab.ClientSize.Width;
+                int h = tab.ClientSize.Height;
+                int btnY = h - 40;
+
+                _auditListView.Size = new Size(w - pad * 2, btnY - pad * 2);
+                _refreshAuditButton.Location = new Point(pad, btnY);
+            };
         }
 
         #endregion
