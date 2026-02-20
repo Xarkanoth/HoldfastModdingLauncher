@@ -14,6 +14,7 @@ namespace HoldfastModdingLauncher
     {
         private readonly ModDownloader _modDownloader;
         private readonly ModManager _modManager;
+        private readonly ApiClient _apiClient;
         
         private Panel _modListPanel;
         private Panel _detailsPanel;
@@ -51,10 +52,11 @@ namespace HoldfastModdingLauncher
         private static readonly Color TextGray = Color.FromArgb(140, 140, 140);
         private static readonly Color BorderColor = Color.FromArgb(60, 60, 70);
 
-        public ModBrowserForm(ModManager modManager)
+        public ModBrowserForm(ModManager modManager, ApiClient apiClient = null)
         {
             _modManager = modManager;
-            _modDownloader = new ModDownloader(modManager);
+            _apiClient = apiClient;
+            _modDownloader = new ModDownloader(modManager, apiClient);
             
             InitializeComponent();
             LoadModsAsync();

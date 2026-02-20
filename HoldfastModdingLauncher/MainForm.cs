@@ -109,6 +109,10 @@ namespace HoldfastModdingLauncher
             // Check first-run disclaimer
             CheckFirstRunDisclaimer();
             
+            // Require login before showing dashboard
+            if (_disclaimerAccepted)
+                ShowLoginGate();
+            
             // Perform initial setup check
             CheckSetup();
             
@@ -759,22 +763,23 @@ namespace HoldfastModdingLauncher
             catch { }
         }
         
-        private async void CheckExistingLogin()
+        private Panel _loginGatePanel;
+
+        private void ShowLoginGate()
         {
-            // Try API session restore first
+            // Try restoring session in the background; if it succeeds we skip the gate
+            _ = TryAutoLoginAndGateAsync();
+        }
+
+        private async Task TryAutoLoginAndGateAsync()
+        {
+            bool sessionRestored = false;
+
             if (_apiClient.IsConfigured)
             {
                 try
                 {
-                    bool restored = await _apiClient.TryRestoreSessionAsync();
-                    if (restored)
-                    {
-                        string displayName = _apiClient.CurrentUser?.DisplayName ?? _apiClient.CurrentUser?.Username ?? "User";
-                        _isMasterLoggedIn = true;
-                        _loggedInClientName = displayName;
-                        UpdateLoginStatus(true);
-                        return;
-                    }
+                    sessionRestored = await _apiClient.TryRestoreSessionAsync();
                 }
                 catch (Exception ex)
                 {
@@ -782,7 +787,269 @@ namespace HoldfastModdingLauncher
                 }
             }
 
-            // Fallback: check local token file
+            if (sessionRestored)
+            {
+                string displayName = _apiClient.CurrentUser?.DisplayName ?? _apiClient.CurrentUser?.Username ?? "User";
+                _isMasterLoggedIn = true;
+                _loggedInClientName = displayName;
+                UpdateLoginStatus(true);
+                return;
+            }
+
+            // No stored session -- show the login gate overlay
+            _loginGatePanel = new Panel
+            {
+                Name = "loginGatePanel",
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(250, 18, 18, 22)
+            };
+
+            var lockIcon = new Label
+            {
+                Text = "🔐",
+                Font = new Font("Segoe UI", 42F),
+                ForeColor = AccentCyan,
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            _loginGatePanel.Controls.Add(lockIcon);
+
+            var gateTitle = new Label
+            {
+                Text = "HOLDFAST MODDING LAUNCHER",
+                Font = new Font("Segoe UI", 16F, FontStyle.Bold),
+                ForeColor = AccentCyan,
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            _loginGatePanel.Controls.Add(gateTitle);
+
+            var gateSubtitle = new Label
+            {
+                Text = "Log in or create an account to continue",
+                Font = new Font("Segoe UI", 10F),
+                ForeColor = TextGray,
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            _loginGatePanel.Controls.Add(gateSubtitle);
+
+            var usernameLabel = new Label
+            {
+                Text = "Username",
+                Font = new Font("Segoe UI", 9F),
+                ForeColor = TextGray,
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            _loginGatePanel.Controls.Add(usernameLabel);
+
+            var gateUsernameBox = new TextBox
+            {
+                Size = new Size(280, 30),
+                Font = new Font("Segoe UI", 11F),
+                BackColor = DarkPanel,
+                ForeColor = TextLight,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            _loginGatePanel.Controls.Add(gateUsernameBox);
+
+            var passwordLabel = new Label
+            {
+                Text = "Password",
+                Font = new Font("Segoe UI", 9F),
+                ForeColor = TextGray,
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            _loginGatePanel.Controls.Add(passwordLabel);
+
+            var gatePasswordBox = new TextBox
+            {
+                Size = new Size(280, 30),
+                Font = new Font("Segoe UI", 11F),
+                BackColor = DarkPanel,
+                ForeColor = TextLight,
+                BorderStyle = BorderStyle.FixedSingle,
+                UseSystemPasswordChar = true
+            };
+            _loginGatePanel.Controls.Add(gatePasswordBox);
+
+            var gateStatusLabel = new Label
+            {
+                Text = "",
+                Font = new Font("Segoe UI", 9F),
+                ForeColor = Color.Red,
+                Size = new Size(280, 20),
+                BackColor = Color.Transparent,
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            _loginGatePanel.Controls.Add(gateStatusLabel);
+
+            var loginBtn = new Button
+            {
+                Text = "LOG IN",
+                Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+                Size = new Size(280, 40),
+                BackColor = DarkPanel,
+                ForeColor = AccentCyan,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            loginBtn.FlatAppearance.BorderColor = AccentCyan;
+            loginBtn.FlatAppearance.BorderSize = 2;
+            loginBtn.FlatAppearance.MouseOverBackColor = Color.FromArgb(30, 60, 60);
+            _loginGatePanel.Controls.Add(loginBtn);
+
+            var registerBtn = new Button
+            {
+                Text = "CREATE ACCOUNT",
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                Size = new Size(280, 36),
+                BackColor = Color.Transparent,
+                ForeColor = AccentMagenta,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            registerBtn.FlatAppearance.BorderColor = AccentMagenta;
+            registerBtn.FlatAppearance.BorderSize = 1;
+            registerBtn.FlatAppearance.MouseOverBackColor = Color.FromArgb(40, 20, 40);
+            _loginGatePanel.Controls.Add(registerBtn);
+
+            // Layout positioning
+            Action layoutGate = () =>
+            {
+                int cx = _loginGatePanel.Width / 2;
+                int cy = _loginGatePanel.Height / 2;
+                int w = 280;
+
+                lockIcon.Location = new Point(cx - lockIcon.Width / 2, cy - 230);
+                gateTitle.Location = new Point(cx - gateTitle.Width / 2, cy - 170);
+                gateSubtitle.Location = new Point(cx - gateSubtitle.Width / 2, cy - 140);
+
+                usernameLabel.Location = new Point(cx - w / 2, cy - 105);
+                gateUsernameBox.Location = new Point(cx - w / 2, cy - 85);
+                passwordLabel.Location = new Point(cx - w / 2, cy - 52);
+                gatePasswordBox.Location = new Point(cx - w / 2, cy - 32);
+                gateStatusLabel.Location = new Point(cx - w / 2, cy + 5);
+                loginBtn.Location = new Point(cx - w / 2, cy + 30);
+                registerBtn.Location = new Point(cx - w / 2, cy + 80);
+            };
+
+            _loginGatePanel.Resize += (s, e) => layoutGate();
+
+            this.Controls.Add(_loginGatePanel);
+            _loginGatePanel.BringToFront();
+            layoutGate();
+
+            // Async login handler
+            Func<Task> doLogin = async () =>
+            {
+                string user = gateUsernameBox.Text.Trim();
+                string pass = gatePasswordBox.Text;
+
+                if (string.IsNullOrEmpty(user) || string.IsNullOrEmpty(pass))
+                {
+                    gateStatusLabel.Text = "Enter username and password";
+                    gateStatusLabel.ForeColor = Color.Orange;
+                    return;
+                }
+
+                loginBtn.Enabled = false;
+                registerBtn.Enabled = false;
+                gateStatusLabel.Text = "Connecting...";
+                gateStatusLabel.ForeColor = AccentCyan;
+
+                var (success, error) = await _apiClient.LoginAsync(user, pass);
+
+                if (success)
+                {
+                    OnLoginGateSuccess();
+                }
+                else
+                {
+                    gateStatusLabel.Text = error;
+                    gateStatusLabel.ForeColor = Color.Red;
+                    loginBtn.Enabled = true;
+                    registerBtn.Enabled = true;
+                }
+            };
+
+            loginBtn.Click += async (s, e) => await doLogin();
+            gatePasswordBox.KeyDown += async (s, e) => { if (e.KeyCode == Keys.Enter) await doLogin(); };
+
+            // Register handler
+            registerBtn.Click += async (s, e) =>
+            {
+                string user = gateUsernameBox.Text.Trim();
+                string pass = gatePasswordBox.Text;
+
+                if (string.IsNullOrEmpty(user) || user.Length < 3)
+                {
+                    gateStatusLabel.Text = "Username must be at least 3 characters";
+                    gateStatusLabel.ForeColor = Color.Orange;
+                    return;
+                }
+                if (string.IsNullOrEmpty(pass) || pass.Length < 4)
+                {
+                    gateStatusLabel.Text = "Password must be at least 4 characters";
+                    gateStatusLabel.ForeColor = Color.Orange;
+                    return;
+                }
+
+                loginBtn.Enabled = false;
+                registerBtn.Enabled = false;
+                gateStatusLabel.Text = "Creating account...";
+                gateStatusLabel.ForeColor = AccentCyan;
+
+                var (success, error) = await _apiClient.RegisterAsync(user, pass, user);
+
+                if (success)
+                {
+                    OnLoginGateSuccess();
+                }
+                else
+                {
+                    gateStatusLabel.Text = error;
+                    gateStatusLabel.ForeColor = Color.Red;
+                    loginBtn.Enabled = true;
+                    registerBtn.Enabled = true;
+                }
+            };
+        }
+
+        private void OnLoginGateSuccess()
+        {
+            string displayName = _apiClient.CurrentUser?.DisplayName ?? _apiClient.CurrentUser?.Username ?? "User";
+            bool isMaster = _apiClient.IsMaster;
+
+            _isMasterLoggedIn = isMaster;
+            _loggedInClientName = displayName;
+
+            string secureToken = CreateSecureToken();
+            WriteTokenToAllLocations(secureToken, displayName);
+
+            UpdateLoginStatus(true);
+
+            // Remove the login gate
+            if (_loginGatePanel != null)
+            {
+                this.Controls.Remove(_loginGatePanel);
+                _loginGatePanel.Dispose();
+                _loginGatePanel = null;
+            }
+        }
+
+        private async void CheckExistingLogin()
+        {
+            // If the login gate handled authentication, skip this
+            if (_apiClient.IsAuthenticated)
+            {
+                UpdateLoginStatus(true);
+                return;
+            }
+
+            // Fallback: check local token file for offline master access
             try
             {
                 string tokenPath = GetTokenFilePath();
@@ -799,16 +1066,13 @@ namespace HoldfastModdingLauncher
                         clientName = rawContent.Substring(separatorIndex + 1);
                     }
                     
-                    if (token == "MASTER_ACCESS_GRANTED")
+                    if (VerifySecureToken(token) || token == "MASTER_ACCESS_GRANTED")
                     {
-                        string secureToken = CreateSecureToken();
-                        WriteTokenToAllLocations(secureToken, clientName);
-                        _isMasterLoggedIn = true;
-                        _loggedInClientName = clientName;
-                        UpdateLoginStatus(true);
-                    }
-                    else if (VerifySecureToken(token))
-                    {
+                        if (token == "MASTER_ACCESS_GRANTED")
+                        {
+                            string secureToken = CreateSecureToken();
+                            WriteTokenToAllLocations(secureToken, clientName);
+                        }
                         _isMasterLoggedIn = true;
                         _loggedInClientName = clientName;
                         UpdateLoginStatus(true);
@@ -902,7 +1166,6 @@ namespace HoldfastModdingLauncher
             if (_loginUsernameBox.ForeColor == TextGray)
                 username = string.Empty;
 
-            // Try API-based login first
             if (_apiClient.IsConfigured && !string.IsNullOrEmpty(username))
             {
                 _loginStatusLabel.Text = "Connecting...";
@@ -915,9 +1178,10 @@ namespace HoldfastModdingLauncher
                 if (success)
                 {
                     string displayName = _apiClient.CurrentUser?.DisplayName ?? _apiClient.CurrentUser?.Username ?? username;
+                    bool isMaster = _apiClient.IsMaster;
                     string secureToken = CreateSecureToken();
                     WriteTokenToAllLocations(secureToken, displayName);
-                    _isMasterLoggedIn = true;
+                    _isMasterLoggedIn = isMaster;
                     _loggedInClientName = displayName;
                     UpdateLoginStatus(true);
                     _loginPasswordBox.Text = "";
@@ -926,36 +1190,14 @@ namespace HoldfastModdingLauncher
                 }
                 else
                 {
-                    Logger.LogWarning($"API login failed: {error}, trying offline fallback...");
-                }
-            }
-
-            // Fallback: hash-based offline login
-            string inputHash = ComputePasswordHash(password);
-            if (MASTER_LOGINS.TryGetValue(inputHash, out string clientName))
-            {
-                try
-                {
-                    string secureToken = CreateSecureToken();
-                    WriteTokenToAllLocations(secureToken, clientName);
-                    _isMasterLoggedIn = true;
-                    _loggedInClientName = clientName;
-                    UpdateLoginStatus(true);
                     _loginPasswordBox.Text = "";
-                    _loginUsernameBox.Text = "";
-                    ShowCustomMessage($"Welcome back, {clientName}!\n\nOffline login successful. Connect to the mod server for full access.",
-                        "Login Successful", MessageBoxIcon.Information);
-                }
-                catch (Exception ex)
-                {
-                    ShowCustomMessage($"Failed to save login token: {ex.Message}",
-                        "Error", MessageBoxIcon.Error);
+                    _loginStatusLabel.Text = $"✗ {error}";
+                    _loginStatusLabel.ForeColor = Color.Red;
                 }
             }
             else
             {
-                _loginPasswordBox.Text = "";
-                _loginStatusLabel.Text = "✗ Invalid credentials";
+                _loginStatusLabel.Text = "✗ Enter username and password";
                 _loginStatusLabel.ForeColor = Color.Red;
             }
         }
@@ -982,7 +1224,8 @@ namespace HoldfastModdingLauncher
                 string displayName = !string.IsNullOrEmpty(_loggedInClientName) ? _loggedInClientName : "Unknown";
                 bool isApiMaster = _apiClient?.IsMaster == true;
                 string source = _apiClient?.IsAuthenticated == true ? "Server" : "Offline";
-                _loginStatusLabel.Text = $"✓ {displayName} ({source})";
+                string role = isApiMaster ? "Master" : "Member";
+                _loginStatusLabel.Text = $"✓ {displayName} ({role})";
                 _loginStatusLabel.ForeColor = SuccessGreen;
                 _loginButton.Text = "Logout";
                 _loginPasswordBox.Enabled = false;
@@ -991,7 +1234,7 @@ namespace HoldfastModdingLauncher
 
                 if (_debugModeCheckBox != null)
                 {
-                    _debugModeCheckBox.Visible = true;
+                    _debugModeCheckBox.Visible = isApiMaster;
                     _debugModeCheckBox.ForeColor = TextLight;
                 }
             }
@@ -1005,7 +1248,6 @@ namespace HoldfastModdingLauncher
                 _loginUsernameBox.Enabled = true;
                 _adminPanelButton.Visible = false;
                 
-                // Hide and uncheck debug console option
                 if (_debugModeCheckBox != null)
                 {
                     _debugModeCheckBox.Visible = false;
@@ -1023,6 +1265,9 @@ namespace HoldfastModdingLauncher
                 _isMasterLoggedIn = false;
                 _loggedInClientName = null;
                 UpdateLoginStatus(false);
+
+                // Re-show the login gate since login is required
+                ShowLoginGate();
             }
             catch (Exception ex)
             {
@@ -1056,7 +1301,7 @@ namespace HoldfastModdingLauncher
         
         private void BrowseModsButton_Click(object sender, EventArgs e)
         {
-            using (var browserForm = new ModBrowserForm(_modManager))
+            using (var browserForm = new ModBrowserForm(_modManager, _apiClient))
             {
                 browserForm.ShowDialog(this);
                 

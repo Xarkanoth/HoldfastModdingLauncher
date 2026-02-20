@@ -91,16 +91,17 @@ namespace HoldfastModdingLauncher
             var closeButton = new Button
             {
                 Text = "✕",
-                Font = new Font("Segoe UI", 10F),
-                Size = new Size(36, 36),
-                Location = new Point(Width - 36, 0),
+                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                Size = new Size(46, 36),
+                Location = new Point(Width - 46, 0),
                 FlatStyle = FlatStyle.Flat,
-                ForeColor = TextGray,
+                ForeColor = TextLight,
                 BackColor = Color.Transparent,
                 Cursor = Cursors.Hand,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             closeButton.FlatAppearance.BorderSize = 0;
+            closeButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(180, 50, 50);
             closeButton.Click += (s, e) => Close();
             titleBar.Controls.Add(closeButton);
 
@@ -123,6 +124,9 @@ namespace HoldfastModdingLauncher
 
         #region Users Tab
 
+        private Label _usersStatusLabel;
+        private Button _resetPasswordButton;
+
         private void BuildUsersTab()
         {
             var tab = new TabPage("Users") { BackColor = DarkBg };
@@ -131,7 +135,7 @@ namespace HoldfastModdingLauncher
             _usersListView = new ListView
             {
                 Location = new Point(10, 10),
-                Size = new Size(800, 400),
+                Size = new Size(800, 390),
                 View = View.Details,
                 FullRowSelect = true,
                 GridLines = true,
@@ -149,21 +153,39 @@ namespace HoldfastModdingLauncher
             _usersListView.Columns.Add("Created", 160);
             tab.Controls.Add(_usersListView);
 
-            _createUserButton = CreateStyledButton("Create User", new Point(10, 420), AccentCyan);
+            int btnY = 410;
+            _createUserButton = CreateStyledButton("+ Create User", new Point(10, btnY), AccentCyan);
+            _createUserButton.Size = new Size(130, 32);
             _createUserButton.Click += CreateUserButton_Click;
             tab.Controls.Add(_createUserButton);
 
-            _editUserButton = CreateStyledButton("Edit User", new Point(140, 420), AccentCyan);
+            _editUserButton = CreateStyledButton("Edit User", new Point(150, btnY), AccentCyan);
             _editUserButton.Click += EditUserButton_Click;
             tab.Controls.Add(_editUserButton);
 
-            _deactivateUserButton = CreateStyledButton("Deactivate", new Point(270, 420), DangerRed);
+            _resetPasswordButton = CreateStyledButton("Reset Password", new Point(280, btnY), AccentMagenta);
+            _resetPasswordButton.Size = new Size(140, 32);
+            _resetPasswordButton.Click += ResetPasswordButton_Click;
+            tab.Controls.Add(_resetPasswordButton);
+
+            _deactivateUserButton = CreateStyledButton("Deactivate", new Point(430, btnY), DangerRed);
             _deactivateUserButton.Click += DeactivateUserButton_Click;
             tab.Controls.Add(_deactivateUserButton);
 
-            var refreshButton = CreateStyledButton("Refresh", new Point(400, 420), TextGray);
+            var refreshButton = CreateStyledButton("Refresh", new Point(560, btnY), TextGray);
             refreshButton.Click += async (s, e) => await LoadUsersAsync();
             tab.Controls.Add(refreshButton);
+
+            _usersStatusLabel = new Label
+            {
+                Text = "",
+                Font = new Font("Segoe UI", 9F),
+                ForeColor = TextGray,
+                Location = new Point(10, btnY + 38),
+                Size = new Size(800, 20),
+                BackColor = Color.Transparent
+            };
+            tab.Controls.Add(_usersStatusLabel);
         }
 
         private async void CreateUserButton_Click(object sender, EventArgs e)
@@ -171,19 +193,40 @@ namespace HoldfastModdingLauncher
             using var dlg = new CreateEditUserDialog(null);
             if (dlg.ShowDialog(this) == DialogResult.OK)
             {
-                var user = await _apiClient.CreateUserAsync(
-                    dlg.Username, dlg.Password, dlg.DisplayName, dlg.Role);
-                if (user != null)
-                    await LoadUsersAsync();
-                else
-                    MessageBox.Show("Failed to create user. Username may already exist.", "Error",
-                        MessageBoxButtons.OK, MessageBoxIcon.Error);
+                _usersStatusLabel.Text = "Creating user...";
+                _usersStatusLabel.ForeColor = AccentCyan;
+                try
+                {
+                    var user = await _apiClient.CreateUserAsync(
+                        dlg.Username, dlg.Password, dlg.DisplayName, dlg.Role);
+                    if (user != null)
+                    {
+                        _usersStatusLabel.Text = $"Created user '{user.Username}' successfully";
+                        _usersStatusLabel.ForeColor = SuccessGreen;
+                        await LoadUsersAsync();
+                    }
+                    else
+                    {
+                        _usersStatusLabel.Text = "Failed to create user. Username may already exist.";
+                        _usersStatusLabel.ForeColor = DangerRed;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _usersStatusLabel.Text = $"Error: {ex.Message}";
+                    _usersStatusLabel.ForeColor = DangerRed;
+                }
             }
         }
 
         private async void EditUserButton_Click(object sender, EventArgs e)
         {
-            if (_usersListView.SelectedItems.Count == 0) return;
+            if (_usersListView.SelectedItems.Count == 0)
+            {
+                _usersStatusLabel.Text = "Select a user first";
+                _usersStatusLabel.ForeColor = TextGray;
+                return;
+            }
             var item = _usersListView.SelectedItems[0];
             int userId = int.Parse(item.SubItems[0].Text);
 
@@ -198,24 +241,87 @@ namespace HoldfastModdingLauncher
 
             if (dlg.ShowDialog(this) == DialogResult.OK)
             {
-                await _apiClient.UpdateUserAsync(userId, dlg.DisplayName, dlg.Role,
-                    dlg.IsActive, string.IsNullOrEmpty(dlg.Password) ? null : dlg.Password);
-                await LoadUsersAsync();
+                _usersStatusLabel.Text = "Updating user...";
+                _usersStatusLabel.ForeColor = AccentCyan;
+                try
+                {
+                    bool success = await _apiClient.UpdateUserAsync(userId, dlg.DisplayName, dlg.Role,
+                        dlg.IsActive, string.IsNullOrEmpty(dlg.Password) ? null : dlg.Password);
+                    _usersStatusLabel.Text = success ? "User updated" : "Failed to update user";
+                    _usersStatusLabel.ForeColor = success ? SuccessGreen : DangerRed;
+                    if (success) await LoadUsersAsync();
+                }
+                catch (Exception ex)
+                {
+                    _usersStatusLabel.Text = $"Error: {ex.Message}";
+                    _usersStatusLabel.ForeColor = DangerRed;
+                }
+            }
+        }
+
+        private async void ResetPasswordButton_Click(object sender, EventArgs e)
+        {
+            if (_usersListView.SelectedItems.Count == 0)
+            {
+                _usersStatusLabel.Text = "Select a user first";
+                _usersStatusLabel.ForeColor = TextGray;
+                return;
+            }
+
+            var item = _usersListView.SelectedItems[0];
+            int userId = int.Parse(item.SubItems[0].Text);
+            string username = item.SubItems[1].Text;
+
+            using var dlg = new ResetPasswordDialog(username);
+            if (dlg.ShowDialog(this) == DialogResult.OK)
+            {
+                _usersStatusLabel.Text = "Resetting password...";
+                _usersStatusLabel.ForeColor = AccentCyan;
+                try
+                {
+                    bool success = await _apiClient.UpdateUserAsync(userId, password: dlg.NewPassword);
+                    _usersStatusLabel.Text = success
+                        ? $"Password reset for '{username}'"
+                        : "Failed to reset password";
+                    _usersStatusLabel.ForeColor = success ? SuccessGreen : DangerRed;
+                }
+                catch (Exception ex)
+                {
+                    _usersStatusLabel.Text = $"Error: {ex.Message}";
+                    _usersStatusLabel.ForeColor = DangerRed;
+                }
             }
         }
 
         private async void DeactivateUserButton_Click(object sender, EventArgs e)
         {
-            if (_usersListView.SelectedItems.Count == 0) return;
+            if (_usersListView.SelectedItems.Count == 0)
+            {
+                _usersStatusLabel.Text = "Select a user first";
+                _usersStatusLabel.ForeColor = TextGray;
+                return;
+            }
             var item = _usersListView.SelectedItems[0];
             int userId = int.Parse(item.SubItems[0].Text);
             string username = item.SubItems[1].Text;
 
-            if (MessageBox.Show($"Deactivate user '{username}'?", "Confirm",
-                MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+            if (MessageBox.Show($"Deactivate user '{username}'?\n\nThey will no longer be able to log in.",
+                "Confirm Deactivation", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
             {
-                await _apiClient.DeactivateUserAsync(userId);
-                await LoadUsersAsync();
+                try
+                {
+                    bool success = await _apiClient.DeactivateUserAsync(userId);
+                    _usersStatusLabel.Text = success
+                        ? $"User '{username}' deactivated"
+                        : "Failed to deactivate user";
+                    _usersStatusLabel.ForeColor = success ? SuccessGreen : DangerRed;
+                    if (success) await LoadUsersAsync();
+                }
+                catch (Exception ex)
+                {
+                    _usersStatusLabel.Text = $"Error: {ex.Message}";
+                    _usersStatusLabel.ForeColor = DangerRed;
+                }
             }
         }
 
@@ -482,8 +588,8 @@ namespace HoldfastModdingLauncher
                 item.ForeColor = user.IsActive ? TextLight : TextGray;
                 _usersListView.Items.Add(item);
 
-                if (user.Role != "Master")
-                    _permUserCombo.Items.Add(new UserComboItem { UserId = user.Id, Display = $"{user.Username} ({user.DisplayName ?? ""})" });
+                var roleTag = user.Role == "Master" ? " [Master - full access]" : "";
+                _permUserCombo.Items.Add(new UserComboItem { UserId = user.Id, Display = $"{user.Username} ({user.DisplayName ?? ""}){roleTag}" });
             }
         }
 
@@ -791,6 +897,94 @@ namespace HoldfastModdingLauncher
             };
             Controls.Add(tb);
             return tb;
+        }
+    }
+
+    public class ResetPasswordDialog : Form
+    {
+        public string NewPassword { get; private set; }
+
+        public ResetPasswordDialog(string username)
+        {
+            Text = $"Reset Password — {username}";
+            Size = new Size(380, 200);
+            StartPosition = FormStartPosition.CenterParent;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            BackColor = Color.FromArgb(18, 18, 22);
+            ForeColor = Color.FromArgb(240, 240, 240);
+
+            var lbl = new Label { Text = "New Password:", Location = new Point(15, 23), AutoSize = true, ForeColor = Color.FromArgb(140, 140, 140) };
+            Controls.Add(lbl);
+
+            var passwordBox = new TextBox
+            {
+                Location = new Point(130, 20),
+                Size = new Size(220, 26),
+                UseSystemPasswordChar = true,
+                BackColor = Color.FromArgb(38, 38, 45),
+                ForeColor = Color.FromArgb(240, 240, 240),
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            Controls.Add(passwordBox);
+
+            var confirmLabel = new Label { Text = "Confirm:", Location = new Point(15, 63), AutoSize = true, ForeColor = Color.FromArgb(140, 140, 140) };
+            Controls.Add(confirmLabel);
+
+            var confirmBox = new TextBox
+            {
+                Location = new Point(130, 60),
+                Size = new Size(220, 26),
+                UseSystemPasswordChar = true,
+                BackColor = Color.FromArgb(38, 38, 45),
+                ForeColor = Color.FromArgb(240, 240, 240),
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            Controls.Add(confirmBox);
+
+            var okButton = new Button
+            {
+                Text = "Reset",
+                DialogResult = DialogResult.OK,
+                Location = new Point(130, 110),
+                Size = new Size(100, 32),
+                BackColor = Color.FromArgb(28, 28, 35),
+                ForeColor = Color.FromArgb(200, 0, 150),
+                FlatStyle = FlatStyle.Flat
+            };
+            var cancelButton = new Button
+            {
+                Text = "Cancel",
+                DialogResult = DialogResult.Cancel,
+                Location = new Point(240, 110),
+                Size = new Size(100, 32),
+                BackColor = Color.FromArgb(28, 28, 35),
+                ForeColor = Color.FromArgb(140, 140, 140),
+                FlatStyle = FlatStyle.Flat
+            };
+            Controls.AddRange(new Control[] { okButton, cancelButton });
+            AcceptButton = okButton;
+            CancelButton = cancelButton;
+
+            okButton.Click += (s, e) =>
+            {
+                if (string.IsNullOrEmpty(passwordBox.Text) || passwordBox.Text.Length < 4)
+                {
+                    MessageBox.Show("Password must be at least 4 characters.", "Validation",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    DialogResult = DialogResult.None;
+                    return;
+                }
+                if (passwordBox.Text != confirmBox.Text)
+                {
+                    MessageBox.Show("Passwords do not match.", "Validation",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    DialogResult = DialogResult.None;
+                    return;
+                }
+                NewPassword = passwordBox.Text;
+            };
         }
     }
 

@@ -1,6 +1,6 @@
 {
-  "version": "1.0.188",
-  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.188/HoldfastModdingLauncher-v1.0.188.zip",
-  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.188",
-  "releaseNotes": "Fix mod browser to show all server mods including private ones."
+  "version": "1.0.189",
+  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.189/HoldfastModdingLauncher-v1.0.189.zip",
+  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.189",
+  "releaseNotes": "Login required to use launcher. Account registration, admin password reset, improved user management."
 }

@@ -264,6 +264,67 @@ namespace HoldfastModdingLauncher.Services
             }
         }
 
+        public async Task<(bool Success, string Error)> RegisterAsync(string username, string password, string displayName = null)
+        {
+            if (!IsConfigured) return (false, "Server URL not configured");
+
+            try
+            {
+                var payload = JsonSerializer.Serialize(new { username, password, displayName });
+                var content = new StringContent(payload, Encoding.UTF8, "application/json");
+                var response = await _httpClient.PostAsync($"{BaseUrl}/api/auth/register", content);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorBody = await response.Content.ReadAsStringAsync();
+                    Logger.LogWarning($"Registration failed: {response.StatusCode} - {errorBody}");
+
+                    if (response.StatusCode == HttpStatusCode.Conflict)
+                        return (false, "Username already taken");
+                    if (response.StatusCode == HttpStatusCode.BadRequest)
+                    {
+                        try
+                        {
+                            var errObj = JsonSerializer.Deserialize<Dictionary<string, string>>(errorBody);
+                            if (errObj != null && errObj.TryGetValue("error", out var msg))
+                                return (false, msg);
+                        }
+                        catch { }
+                        return (false, "Invalid registration data");
+                    }
+                    return (false, $"Server error: {response.StatusCode}");
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                var loginResponse = JsonSerializer.Deserialize<ApiLoginResponse>(json);
+                if (loginResponse == null)
+                    return (false, "Invalid server response");
+
+                _auth = new StoredAuth
+                {
+                    AccessToken = loginResponse.AccessToken,
+                    RefreshToken = loginResponse.RefreshToken,
+                    ExpiresAt = loginResponse.ExpiresAt,
+                    ServerUrl = BaseUrl ?? string.Empty
+                };
+
+                SaveStoredAuth();
+                ApplyAuthHeader();
+
+                _currentUser = await FetchCurrentUserAsync();
+                _isAvailable = true;
+                AuthStateChanged?.Invoke(true);
+
+                Logger.LogInfo($"Registration + auto-login successful: {_currentUser?.Username ?? username}");
+                return (true, string.Empty);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Registration error: {ex.Message}");
+                return (false, $"Connection error: {ex.Message}");
+            }
+        }
+
         public async Task<bool> TryRestoreSessionAsync()
         {
             if (!IsConfigured || _auth == null || string.IsNullOrEmpty(_auth.AccessToken))
