@@ -192,6 +192,7 @@ namespace HoldfastModdingLauncher.Services
         public bool IsAvailable => _isAvailable;
         public ApiUserInfo CurrentUser => _currentUser;
         public bool IsMaster => _currentUser?.IsMaster == true;
+        public bool PersistSession { get; set; } = true;
 
         public event Action<bool> AuthStateChanged;
 
@@ -673,6 +674,7 @@ namespace HoldfastModdingLauncher.Services
 
         private void SaveStoredAuth()
         {
+            if (!PersistSession) return;
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(AuthFilePath));

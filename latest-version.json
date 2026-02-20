@@ -1,6 +1,6 @@
 {
-  "version": "1.0.191",
-  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.191/HoldfastModdingLauncher-v1.0.191.zip",
-  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.191",
-  "releaseNotes": "Fix admin panel layout - all controls now properly visible."
+  "version": "1.0.192",
+  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.192/HoldfastModdingLauncher-v1.0.192.zip",
+  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.192",
+  "releaseNotes": "Add 'Keep me logged in' toggle on login screen."
 }

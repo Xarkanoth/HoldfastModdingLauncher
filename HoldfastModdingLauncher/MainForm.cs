@@ -916,6 +916,18 @@ namespace HoldfastModdingLauncher
             registerBtn.FlatAppearance.MouseOverBackColor = Color.FromArgb(40, 20, 40);
             _loginGatePanel.Controls.Add(registerBtn);
 
+            var keepLoggedInCheck = new CheckBox
+            {
+                Text = "  Keep me logged in",
+                Font = new Font("Segoe UI", 9F),
+                ForeColor = TextGray,
+                AutoSize = true,
+                Checked = true,
+                BackColor = Color.Transparent,
+                Cursor = Cursors.Hand
+            };
+            _loginGatePanel.Controls.Add(keepLoggedInCheck);
+
             // Layout positioning
             Action layoutGate = () =>
             {
@@ -933,7 +945,8 @@ namespace HoldfastModdingLauncher
                 gatePasswordBox.Location = new Point(cx - w / 2, cy - 32);
                 gateStatusLabel.Location = new Point(cx - w / 2, cy + 5);
                 loginBtn.Location = new Point(cx - w / 2, cy + 30);
-                registerBtn.Location = new Point(cx - w / 2, cy + 80);
+                keepLoggedInCheck.Location = new Point(cx - w / 2, cy + 78);
+                registerBtn.Location = new Point(cx - w / 2, cy + 105);
             };
 
             _loginGatePanel.Resize += (s, e) => layoutGate();
@@ -960,6 +973,7 @@ namespace HoldfastModdingLauncher
                 gateStatusLabel.Text = "Connecting...";
                 gateStatusLabel.ForeColor = AccentCyan;
 
+                _apiClient.PersistSession = keepLoggedInCheck.Checked;
                 var (success, error) = await _apiClient.LoginAsync(user, pass);
 
                 if (success)
@@ -1001,6 +1015,8 @@ namespace HoldfastModdingLauncher
                 registerBtn.Enabled = false;
                 gateStatusLabel.Text = "Creating account...";
                 gateStatusLabel.ForeColor = AccentCyan;
+
+                _apiClient.PersistSession = keepLoggedInCheck.Checked;
 
                 var (success, error) = await _apiClient.RegisterAsync(user, pass, user);
 
