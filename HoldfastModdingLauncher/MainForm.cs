@@ -923,7 +923,7 @@ namespace HoldfastModdingLauncher
                 int cy = _loginGatePanel.Height / 2;
                 int w = 280;
 
-                lockIcon.Location = new Point(cx - lockIcon.Width / 2, cy - 230);
+                lockIcon.Location = new Point(cx - lockIcon.Width / 2, cy - 270);
                 gateTitle.Location = new Point(cx - gateTitle.Width / 2, cy - 170);
                 gateSubtitle.Location = new Point(cx - gateSubtitle.Width / 2, cy - 140);
 

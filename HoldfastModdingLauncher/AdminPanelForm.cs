@@ -60,7 +60,7 @@ namespace HoldfastModdingLauncher
         {
             SuspendLayout();
             Text = "Admin Panel";
-            Size = new Size(850, 600);
+            Size = new Size(950, 700);
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.None;
             BackColor = DarkBg;
@@ -90,25 +90,32 @@ namespace HoldfastModdingLauncher
 
             var closeButton = new Button
             {
-                Text = "✕",
-                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-                Size = new Size(46, 36),
-                Location = new Point(Width - 46, 0),
+                Text = "✕  Close",
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                Size = new Size(90, 36),
+                Location = new Point(Width - 90, 0),
                 FlatStyle = FlatStyle.Flat,
                 ForeColor = TextLight,
-                BackColor = Color.Transparent,
+                BackColor = Color.FromArgb(140, 30, 30),
                 Cursor = Cursors.Hand,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             closeButton.FlatAppearance.BorderSize = 0;
-            closeButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(180, 50, 50);
+            closeButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(200, 50, 50);
             closeButton.Click += (s, e) => Close();
             titleBar.Controls.Add(closeButton);
+
+            // Visible border around the form
+            Paint += (s, e) =>
+            {
+                using (var pen = new Pen(Color.FromArgb(60, 60, 70), 2))
+                    e.Graphics.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+            };
 
             _tabControl = new TabControl
             {
                 Location = new Point(10, 42),
-                Size = new Size(830, 548),
+                Size = new Size(930, 648),
                 Font = new Font("Segoe UI", 10F),
                 Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
@@ -135,7 +142,7 @@ namespace HoldfastModdingLauncher
             _usersListView = new ListView
             {
                 Location = new Point(10, 10),
-                Size = new Size(800, 390),
+                Size = new Size(890, 490),
                 View = View.Details,
                 FullRowSelect = true,
                 GridLines = true,
@@ -153,7 +160,7 @@ namespace HoldfastModdingLauncher
             _usersListView.Columns.Add("Created", 160);
             tab.Controls.Add(_usersListView);
 
-            int btnY = 410;
+            int btnY = 510;
             _createUserButton = CreateStyledButton("+ Create User", new Point(10, btnY), AccentCyan);
             _createUserButton.Size = new Size(130, 32);
             _createUserButton.Click += CreateUserButton_Click;
@@ -182,7 +189,7 @@ namespace HoldfastModdingLauncher
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextGray,
                 Location = new Point(10, btnY + 38),
-                Size = new Size(800, 20),
+                Size = new Size(890, 20),
                 BackColor = Color.Transparent
             };
             tab.Controls.Add(_usersStatusLabel);
