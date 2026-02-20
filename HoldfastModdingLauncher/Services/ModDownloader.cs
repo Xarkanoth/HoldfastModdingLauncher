@@ -1087,7 +1087,10 @@ namespace HoldfastModdingLauncher.Services
                     ClearCache();
                     _modManager.ClearVersionCache();
                     
-                    // Update ModVersions.json with the new version
+                    // Track the installed version in AppData (survives launcher updates)
+                    _modManager.SetInstalledModVersion(mod.DllName, mod.Version);
+
+                    // Also update ModVersions.json with the new version
                     UpdateModVersionsFile(mod);
                 }
                 finally

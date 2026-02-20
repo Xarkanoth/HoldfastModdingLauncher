@@ -1,6 +1,6 @@
 {
-  "version": "1.0.192",
-  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.192/HoldfastModdingLauncher-v1.0.192.zip",
-  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.192",
-  "releaseNotes": "Add 'Keep me logged in' toggle on login screen."
+  "version": "1.0.193",
+  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.193/HoldfastModdingLauncher-v1.0.193.zip",
+  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.193",
+  "releaseNotes": "Fix mod version tracking - downloaded mods no longer show false update prompts."
 }

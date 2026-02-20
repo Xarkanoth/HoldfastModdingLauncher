@@ -52,8 +52,10 @@ namespace HoldfastModdingLauncher.Core
         private const string MODS_FOLDER = "Mods";
         private const string MODS_CONFIG_FILE = "mods.json";
         private const string MOD_VERSIONS_FILE = "ModVersions.json";
+        private const string INSTALLED_VERSIONS_FILE = "installed-versions.json";
         private Dictionary<string, bool> _modStates = new Dictionary<string, bool>();
         private ModVersionsFile? _modVersions = null;
+        private Dictionary<string, string>? _installedVersions = null;
 
         /// <summary>
         /// Clears the cached mod versions, forcing a reload from disk on next access.
@@ -62,7 +64,72 @@ namespace HoldfastModdingLauncher.Core
         public void ClearVersionCache()
         {
             _modVersions = null;
+            _installedVersions = null;
             Logger.LogInfo("Mod versions cache cleared");
+        }
+
+        /// <summary>
+        /// Records the version of a mod that was downloaded/installed from the server.
+        /// Persists to disk so the version is remembered across launches.
+        /// </summary>
+        public void SetInstalledModVersion(string dllFileName, string version)
+        {
+            LoadInstalledVersions();
+            _installedVersions![dllFileName] = version;
+            SaveInstalledVersions();
+            Logger.LogInfo($"Tracked installed version: {dllFileName} = v{version}");
+        }
+
+        public string? GetTrackedInstalledVersion(string dllFileName)
+        {
+            LoadInstalledVersions();
+            return _installedVersions!.TryGetValue(dllFileName, out var v) ? v : null;
+        }
+
+        private string GetInstalledVersionsPath()
+        {
+            string appData = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "HoldfastModding");
+            if (!Directory.Exists(appData)) Directory.CreateDirectory(appData);
+            return Path.Combine(appData, INSTALLED_VERSIONS_FILE);
+        }
+
+        private void LoadInstalledVersions()
+        {
+            if (_installedVersions != null) return;
+            try
+            {
+                string path = GetInstalledVersionsPath();
+                if (File.Exists(path))
+                {
+                    string json = File.ReadAllText(path);
+                    _installedVersions = JsonSerializer.Deserialize<Dictionary<string, string>>(json)
+                        ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                }
+                else
+                {
+                    _installedVersions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                }
+            }
+            catch
+            {
+                _installedVersions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
+        private void SaveInstalledVersions()
+        {
+            try
+            {
+                string path = GetInstalledVersionsPath();
+                var json = JsonSerializer.Serialize(_installedVersions, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(path, json);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning($"Failed to save installed versions: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -131,6 +198,9 @@ namespace HoldfastModdingLauncher.Core
                         // Get version and display info from ModVersions.json
                         var versionEntry = GetModVersionEntry(fileName);
                         var displayInfo = GetModDisplayInfo(fileName);
+                        string resolvedVersion = versionEntry?.Version
+                            ?? GetTrackedInstalledVersion(fileName)
+                            ?? GetModVersion(dllFile);
                         
                         var modInfo = new ModInfo
                         {
@@ -138,7 +208,7 @@ namespace HoldfastModdingLauncher.Core
                             FullPath = dllFile,
                             LastModified = fileInfo.LastWriteTime,
                             FileSize = fileInfo.Length,
-                            Version = versionEntry?.Version ?? GetModVersion(dllFile),
+                            Version = resolvedVersion,
                             DisplayName = displayInfo.DisplayName,
                             Description = displayInfo.Description,
                             Requirements = displayInfo.Requirements,
