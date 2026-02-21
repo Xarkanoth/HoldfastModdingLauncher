@@ -30,6 +30,7 @@ namespace HoldfastModdingLauncher
         private Button _createUserButton;
         private Button _editUserButton;
         private Button _deactivateUserButton;
+        private Button _deleteUserButton;
 
         // Permissions tab
         private ComboBox _permUserCombo;
@@ -40,6 +41,7 @@ namespace HoldfastModdingLauncher
         // Mods tab
         private ListView _modsListView;
         private Button _uploadModButton;
+        private Button _toggleDefaultButton;
         private Label _modsStatusLabel;
 
         // Audit tab
@@ -181,6 +183,11 @@ namespace HoldfastModdingLauncher
             _deactivateUserButton.Click += DeactivateUserButton_Click;
             tab.Controls.Add(_deactivateUserButton);
 
+            _deleteUserButton = CreateStyledButton("Delete", Point.Empty, DangerRed);
+            _deleteUserButton.Size = new Size(80, btnH);
+            _deleteUserButton.Click += DeleteUserButton_Click;
+            tab.Controls.Add(_deleteUserButton);
+
             var refreshButton = CreateStyledButton("Refresh", Point.Empty, TextGray);
             refreshButton.Size = new Size(80, btnH);
             refreshButton.Click += async (s, e) => await LoadUsersAsync();
@@ -208,7 +215,8 @@ namespace HoldfastModdingLauncher
                 _editUserButton.Location = new Point(pad + 128, btnY);
                 _resetPasswordButton.Location = new Point(pad + 226, btnY);
                 _deactivateUserButton.Location = new Point(pad + 364, btnY);
-                refreshButton.Location = new Point(pad + 472, btnY);
+                _deleteUserButton.Location = new Point(pad + 472, btnY);
+                refreshButton.Location = new Point(pad + 560, btnY);
                 _usersStatusLabel.Location = new Point(pad, btnY + btnH + pad);
                 _usersStatusLabel.Size = new Size(w - pad * 2, statusH);
             };
@@ -340,6 +348,39 @@ namespace HoldfastModdingLauncher
                     _usersStatusLabel.Text = success
                         ? $"User '{username}' deactivated"
                         : "Failed to deactivate user";
+                    _usersStatusLabel.ForeColor = success ? SuccessGreen : DangerRed;
+                    if (success) await LoadUsersAsync();
+                }
+                catch (Exception ex)
+                {
+                    _usersStatusLabel.Text = $"Error: {ex.Message}";
+                    _usersStatusLabel.ForeColor = DangerRed;
+                }
+            }
+        }
+
+        private async void DeleteUserButton_Click(object sender, EventArgs e)
+        {
+            if (_usersListView.SelectedItems.Count == 0)
+            {
+                _usersStatusLabel.Text = "Select a user first";
+                _usersStatusLabel.ForeColor = TextGray;
+                return;
+            }
+            var item = _usersListView.SelectedItems[0];
+            int userId = int.Parse(item.SubItems[0].Text);
+            string username = item.SubItems[1].Text;
+
+            if (MessageBox.Show(
+                $"PERMANENTLY delete user '{username}'?\n\nThis will remove the account and all their permissions.\nThis action cannot be undone.",
+                "Confirm Permanent Deletion", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+            {
+                try
+                {
+                    bool success = await _apiClient.DeleteUserAsync(userId);
+                    _usersStatusLabel.Text = success
+                        ? $"User '{username}' permanently deleted"
+                        : "Failed to delete user (may be the last master account)";
                     _usersStatusLabel.ForeColor = success ? SuccessGreen : DangerRed;
                     if (success) await LoadUsersAsync();
                 }
@@ -494,18 +535,24 @@ namespace HoldfastModdingLauncher
                 Font = new Font("Segoe UI", 9F)
             };
             _modsListView.Columns.Add("ID", 45);
-            _modsListView.Columns.Add("Mod Key", 140);
-            _modsListView.Columns.Add("Name", 150);
-            _modsListView.Columns.Add("Version", 70);
-            _modsListView.Columns.Add("Category", 90);
-            _modsListView.Columns.Add("Size", 70);
-            _modsListView.Columns.Add("Updated", 130);
+            _modsListView.Columns.Add("Mod Key", 130);
+            _modsListView.Columns.Add("Name", 130);
+            _modsListView.Columns.Add("Version", 65);
+            _modsListView.Columns.Add("Default", 60);
+            _modsListView.Columns.Add("Category", 80);
+            _modsListView.Columns.Add("Size", 65);
+            _modsListView.Columns.Add("Updated", 120);
             tab.Controls.Add(_modsListView);
 
             _uploadModButton = CreateStyledButton("Upload Mod DLL", Point.Empty, AccentCyan);
             _uploadModButton.Size = new Size(140, 30);
             _uploadModButton.Click += UploadModButton_Click;
             tab.Controls.Add(_uploadModButton);
+
+            _toggleDefaultButton = CreateStyledButton("Toggle Default", Point.Empty, AccentMagenta);
+            _toggleDefaultButton.Size = new Size(130, 30);
+            _toggleDefaultButton.Click += ToggleDefaultButton_Click;
+            tab.Controls.Add(_toggleDefaultButton);
 
             var refreshModsButton = CreateStyledButton("Refresh", Point.Empty, TextGray);
             refreshModsButton.Size = new Size(80, 30);
@@ -529,8 +576,9 @@ namespace HoldfastModdingLauncher
 
                 _modsListView.Size = new Size(w - pad * 2, btnY - pad * 2);
                 _uploadModButton.Location = new Point(pad, btnY);
-                refreshModsButton.Location = new Point(pad + 148, btnY);
-                _modsStatusLabel.Location = new Point(pad + 240, btnY + 6);
+                _toggleDefaultButton.Location = new Point(pad + 148, btnY);
+                refreshModsButton.Location = new Point(pad + 286, btnY);
+                _modsStatusLabel.Location = new Point(pad + 378, btnY + 6);
             };
         }
 
@@ -570,6 +618,45 @@ namespace HoldfastModdingLauncher
                 {
                     _uploadModButton.Enabled = true;
                 }
+            }
+        }
+
+        private async void ToggleDefaultButton_Click(object sender, EventArgs e)
+        {
+            if (_modsListView.SelectedItems.Count == 0)
+            {
+                _modsStatusLabel.Text = "Select a mod first";
+                _modsStatusLabel.ForeColor = TextGray;
+                return;
+            }
+
+            var item = _modsListView.SelectedItems[0];
+            int modId = int.Parse(item.SubItems[0].Text);
+            string modName = item.SubItems[2].Text;
+            bool currentlyDefault = item.SubItems[4].Text == "Yes";
+            bool newDefault = !currentlyDefault;
+
+            try
+            {
+                bool success = await _apiClient.SetModDefaultAsync(modId, newDefault);
+                if (success)
+                {
+                    _modsStatusLabel.Text = newDefault
+                        ? $"'{modName}' is now a default mod (all users)"
+                        : $"'{modName}' is no longer a default mod";
+                    _modsStatusLabel.ForeColor = SuccessGreen;
+                    await LoadModsAsync();
+                }
+                else
+                {
+                    _modsStatusLabel.Text = "Failed to update mod default status";
+                    _modsStatusLabel.ForeColor = DangerRed;
+                }
+            }
+            catch (Exception ex)
+            {
+                _modsStatusLabel.Text = $"Error: {ex.Message}";
+                _modsStatusLabel.ForeColor = DangerRed;
             }
         }
 
@@ -667,9 +754,12 @@ namespace HoldfastModdingLauncher
                 item.SubItems.Add(mod.ModKey);
                 item.SubItems.Add(mod.Name);
                 item.SubItems.Add(mod.Version);
+                item.SubItems.Add(mod.IsDefault ? "Yes" : "No");
                 item.SubItems.Add(mod.Category ?? "");
                 item.SubItems.Add(FormatBytes(mod.FileSize));
                 item.SubItems.Add(mod.UpdatedAt.ToString("yyyy-MM-dd HH:mm"));
+                if (mod.IsDefault)
+                    item.ForeColor = SuccessGreen;
                 _modsListView.Items.Add(item);
 
                 _permModsList.Items.Add(new ModListItem { ModId = mod.Id, Display = $"{mod.Name} ({mod.ModKey})" });

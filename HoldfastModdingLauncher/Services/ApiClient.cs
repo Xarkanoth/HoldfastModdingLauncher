@@ -74,6 +74,9 @@ namespace HoldfastModdingLauncher.Services
 
         [JsonPropertyName("updatedAt")]
         public DateTime UpdatedAt { get; set; }
+
+        [JsonPropertyName("isDefault")]
+        public bool IsDefault { get; set; }
     }
 
     public class ApiVersionInfo
@@ -509,6 +512,12 @@ namespace HoldfastModdingLauncher.Services
             return response != null && response.IsSuccessStatusCode;
         }
 
+        public async Task<bool> DeleteUserAsync(int userId)
+        {
+            var response = await AuthenticatedDeleteAsync($"/api/admin/users/{userId}/permanent");
+            return response != null && response.IsSuccessStatusCode;
+        }
+
         public async Task<List<ApiPermissionDto>> GetUserPermissionsAsync(int userId)
         {
             var response = await AuthenticatedGetAsync($"/api/admin/users/{userId}/permissions");
@@ -524,6 +533,15 @@ namespace HoldfastModdingLauncher.Services
             var content = new StringContent(payload, Encoding.UTF8, "application/json");
 
             var response = await AuthenticatedPutAsync($"/api/admin/users/{userId}/permissions", content);
+            return response != null && response.IsSuccessStatusCode;
+        }
+
+        public async Task<bool> SetModDefaultAsync(int modId, bool isDefault)
+        {
+            var payload = JsonSerializer.Serialize(new { isDefault });
+            var content = new StringContent(payload, Encoding.UTF8, "application/json");
+
+            var response = await AuthenticatedPutAsync($"/api/admin/mods/{modId}/default", content);
             return response != null && response.IsSuccessStatusCode;
         }
 
