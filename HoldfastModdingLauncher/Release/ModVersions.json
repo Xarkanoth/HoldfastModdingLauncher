@@ -17,13 +17,21 @@
                                             "ProjectFolder":  "CustomSplashScreen"
                                         },
                  "CustomCrosshairs":  {
-                                          "Version":  "1.0.40",
+                                          "Version":  "1.0.41",
                                           "DisplayName":  "Custom Crosshairs",
                                           "Description":  "Replace weapon crosshairs with custom images! Configure via the launcher settings.",
                                           "Requirements":  "",
                                           "DllName":  "CustomCrosshairs.dll",
                                           "ProjectFolder":  "CustomCrosshairs"
                                       },
+                 "Rangefinder":  {
+                                     "Version":  "1.0.0",
+                                     "DisplayName":  "Rangefinder",
+                                     "Description":  "Displays distance to target, ballistic trajectory arc, and enemy aim guidance overlay.",
+                                     "Requirements":  "Requires Master login.",
+                                     "DllName":  "Rangefinder.dll",
+                                     "ProjectFolder":  "Rangefinder"
+                                 },
                  "LauncherCoreMod":  {
                                          "Version":  "1.0.13",
                                          "Description":  "",

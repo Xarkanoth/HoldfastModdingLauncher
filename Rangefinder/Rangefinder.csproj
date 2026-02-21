@@ -5,11 +5,11 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <OutputPath>..\</OutputPath>
-    <AssemblyName>CustomCrosshairs</AssemblyName>
-    <RootNamespace>CustomCrosshairs</RootNamespace>
-    <Version>1.0.41</Version>
-    <AssemblyVersion>1.0.41.0</AssemblyVersion>
-    <FileVersion>1.0.41.0</FileVersion>
+    <AssemblyName>Rangefinder</AssemblyName>
+    <RootNamespace>Rangefinder</RootNamespace>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
   </PropertyGroup>
   
   <ItemGroup>
@@ -40,12 +40,12 @@
       <HintPath>D:\SteamLibrary\steamapps\common\Holdfast Nations At War\Holdfast NaW_Data\Managed\UnityEngine.UI.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="UnityEngine.ImageConversionModule">
-      <HintPath>D:\SteamLibrary\steamapps\common\Holdfast Nations At War\Holdfast NaW_Data\Managed\UnityEngine.ImageConversionModule.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="UnityEngine.InputLegacyModule">
       <HintPath>D:\SteamLibrary\steamapps\common\Holdfast Nations At War\Holdfast NaW_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>D:\SteamLibrary\steamapps\common\Holdfast Nations At War\Holdfast NaW_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.TextRenderingModule">
@@ -60,11 +60,6 @@
     </Reference>
     <Reference Include="HoldfastSharedMethods">
       <HintPath>D:\SteamLibrary\steamapps\common\Holdfast Nations At War\Holdfast NaW_Data\Managed\HoldfastSharedMethods.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    
-    <!-- System -->
-    <Reference Include="System.Drawing">
       <Private>False</Private>
     </Reference>
   </ItemGroup>
