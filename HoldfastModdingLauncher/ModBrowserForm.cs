@@ -683,12 +683,14 @@ namespace HoldfastModdingLauncher
                 _modRequirementsLabel.Visible = false;
             }
 
-            // Show/hide buttons based on installed state
+            bool isCoreMod = mod.DllName.Equals("LauncherCoreMod.dll", StringComparison.OrdinalIgnoreCase) ||
+                            mod.Id.Equals("LauncherCoreMod", StringComparison.OrdinalIgnoreCase);
+
             if (mod.IsInstalled)
             {
                 _installButton.Visible = false;
                 _updateButton.Visible = mod.HasUpdate;
-                _uninstallButton.Visible = true;
+                _uninstallButton.Visible = !isCoreMod;
             }
             else
             {
@@ -775,6 +777,17 @@ namespace HoldfastModdingLauncher
         private void UninstallSelectedMod(object sender, EventArgs e)
         {
             if (_selectedMod == null) return;
+
+            if (_selectedMod.DllName.Equals("LauncherCoreMod.dll", StringComparison.OrdinalIgnoreCase) ||
+                _selectedMod.Id.Equals("LauncherCoreMod", StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show(
+                    "LauncherCoreMod is a core component required for the launcher to function.\n\nIt cannot be uninstalled.",
+                    "Core Mod Protection",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
 
             var confirmResult = MessageBox.Show(
                 $"Are you sure you want to uninstall {_selectedMod.Name}?",

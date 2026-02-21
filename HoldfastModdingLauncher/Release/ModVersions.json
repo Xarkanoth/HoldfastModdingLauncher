@@ -9,7 +9,7 @@
                                          "ProjectFolder":  "AdvancedAdminUI"
                                      },
                  "CustomSplashScreen":  {
-                                            "Version":  "1.0.14",
+                                            "Version":  "1.0.17",
                                             "DisplayName":  "Custom Splash Screen",
                                             "Description":  "Replace the Holdfast splash screen with custom videos! Configure via the launcher settings.",
                                             "Requirements":  "",
@@ -34,6 +34,6 @@
                                      }
              },
     "Launcher":  {
-                     "Version":  "1.0.195"
+                     "Version":  "1.0.196"
                  }
 }

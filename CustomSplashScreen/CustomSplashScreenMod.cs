@@ -18,7 +18,7 @@ namespace CustomSplashScreen
     {
         public const string PLUGIN_GUID = "com.xarkanoth.customsplashscreen";
         public const string PLUGIN_NAME = "Custom Splash Screen";
-        public const string PLUGIN_VERSION = "1.0.14";
+        public const string PLUGIN_VERSION = "1.0.17";
 
         public static ManualLogSource Log;
         public static CustomSplashScreenMod Instance;
@@ -34,6 +34,7 @@ namespace CustomSplashScreen
 
         // Available videos - dynamically loaded from local folder
         public static Dictionary<string, SplashVideo> AvailableVideos = new Dictionary<string, SplashVideo>();
+
 
         private void Awake()
         {
@@ -293,6 +294,7 @@ namespace CustomSplashScreen
             // Set to URL source (file:// for local files)
             videoPlayer.source = VideoSource.Url;
             videoPlayer.url = videoUrl;
+            videoPlayer.aspectRatio = VideoAspectRatio.FitInside;
 
             // Prepare and play
             videoPlayer.prepareCompleted += (vp) =>
@@ -308,6 +310,10 @@ namespace CustomSplashScreen
 
             videoPlayer.Prepare();
             _videoReplaced = true;
+
+            var skipObj = new GameObject("SplashSkipHandler");
+            var handler = skipObj.AddComponent<SplashSkipHandler>();
+            handler.Init(videoPlayer);
 
             Log.LogInfo("Custom video applied successfully!");
         }
@@ -377,6 +383,7 @@ namespace CustomSplashScreen
                 __instance.Stop();
                 __instance.source = VideoSource.Url;
                 __instance.url = videoUrl;
+                __instance.aspectRatio = VideoAspectRatio.FitInside;
                 
                 __instance.prepareCompleted += (vp) =>
                 {
@@ -393,6 +400,10 @@ namespace CustomSplashScreen
 
                 CustomSplashScreenMod.Log?.LogInfo($"[Harmony] Preparing custom video: {videoUrl}");
                 __instance.Prepare();
+
+                var skipObj = new GameObject("SplashSkipHandler");
+                var handler = skipObj.AddComponent<SplashSkipHandler>();
+                handler.Init(__instance);
 
                 return false; // Skip the original Play() call, we'll call it after prepare
             }
@@ -433,6 +444,99 @@ namespace CustomSplashScreen
             CustomSplashScreenMod.Log?.LogWarning($"[Harmony] Video file not found: {videoPath}");
             CustomSplashScreenMod.Log?.LogInfo("[Harmony] Download videos via the Modding Launcher settings.");
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Scene-attached MonoBehaviour that handles Escape-to-skip and renders the hint overlay.
+    /// Lives on a GameObject inside SplashScreenScene and is destroyed with the scene.
+    /// </summary>
+    public class SplashSkipHandler : MonoBehaviour
+    {
+        private VideoPlayer _videoPlayer;
+        private float _timer;
+        private bool _active;
+
+        public void Init(VideoPlayer videoPlayer)
+        {
+            _videoPlayer = videoPlayer;
+            _active = true;
+            _timer = 0f;
+
+            videoPlayer.loopPointReached += OnVideoFinished;
+
+            CustomSplashScreenMod.Log?.LogInfo("SplashSkipHandler attached to SplashScreenScene");
+        }
+
+        private void Update()
+        {
+            if (!_active || _videoPlayer == null) return;
+
+            _timer += Time.unscaledDeltaTime;
+
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                CustomSplashScreenMod.Log?.LogInfo("User pressed Escape - skipping splash video");
+                Skip();
+            }
+        }
+
+        private void Skip()
+        {
+            _active = false;
+
+            if (_videoPlayer != null)
+            {
+                _videoPlayer.loopPointReached -= OnVideoFinished;
+                _videoPlayer.Stop();
+                _videoPlayer = null;
+            }
+
+            int nextIndex = SceneManager.GetActiveScene().buildIndex + 1;
+            if (nextIndex < SceneManager.sceneCountInBuildSettings)
+            {
+                SceneManager.LoadScene(nextIndex);
+            }
+        }
+
+        private void OnVideoFinished(VideoPlayer vp)
+        {
+            _active = false;
+            _videoPlayer = null;
+        }
+
+        private void OnGUI()
+        {
+            if (!_active) return;
+
+            float alpha = _timer < 3f ? 0.9f : Mathf.Max(0.35f, 0.9f - (_timer - 3f) * 0.3f);
+
+            float padding = 24f;
+            float boxW = 160f;
+            float boxH = 32f;
+            float x = Screen.width - boxW - padding;
+            float y = Screen.height - boxH - padding;
+            var rect = new Rect(x, y, boxW, boxH);
+
+            var shadowStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 15,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleRight
+            };
+            shadowStyle.normal.textColor = new Color(0f, 0f, 0f, alpha);
+
+            var textStyle = new GUIStyle(shadowStyle);
+            textStyle.normal.textColor = new Color(1f, 1f, 1f, alpha);
+
+            GUI.Label(new Rect(rect.x + 1, rect.y + 1, rect.width, rect.height), "Esc to skip intro", shadowStyle);
+            GUI.Label(rect, "Esc to skip intro", textStyle);
+        }
+
+        private void OnDestroy()
+        {
+            if (_videoPlayer != null)
+                _videoPlayer.loopPointReached -= OnVideoFinished;
         }
     }
 }

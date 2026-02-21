@@ -65,9 +65,11 @@ namespace HoldfastModdingLauncher
         private const string HASH_SALT = "HF_MODDING_2024_XARK";
         private const string LOGIN_TOKEN_FILE = "master_login.token";
         
-        // LauncherCoreMod integrity protection 
+        // LauncherCoreMod integrity protection
         private const string LAUNCHER_CORE_MOD_NAME = "LauncherCoreMod.dll";
         private const string LAUNCHER_CORE_MOD_EXPECTED_HASH = "8195ea3d0eeb20c751da4ae82032d8b98e014603502e0101fba3ae3e1d8d9aed";
+        private bool _coreModMissing = false;
+        private Panel _coreModLockPanel;
 
         // Dark theme colors (matching InstallerForm)
         private readonly Color DarkBg = Color.FromArgb(18, 18, 18);
@@ -93,18 +95,8 @@ namespace HoldfastModdingLauncher
             InitializeComponent();
             InitializeUI();
             
-            // CRITICAL: Verify LauncherCoreMod before anything else
-            if (!VerifyLauncherCoreMod())
-            {
-                // Launcher cannot function without LauncherCoreMod
-                ShowCriticalError("Launcher Core Mod Missing or Invalid", 
-                    "The LauncherCoreMod.dll file is missing or has been modified.\n\n" +
-                    "The launcher cannot function without this core mod.\n\n" +
-                    "Please restore the original LauncherCoreMod.dll file to continue.\n\n" +
-                    "If you deleted it, you can reinstall the launcher or download it from the mod browser.");
-                Application.Exit();
-                return;
-            }
+            // Check LauncherCoreMod - if missing, launcher will be locked after login
+            _coreModMissing = !VerifyLauncherCoreMod();
             
             // Check first-run disclaimer
             CheckFirstRunDisclaimer();
@@ -1053,6 +1045,12 @@ namespace HoldfastModdingLauncher
                 this.Controls.Remove(_loginGatePanel);
                 _loginGatePanel.Dispose();
                 _loginGatePanel = null;
+            }
+
+            // If core mod is missing, lock the launcher
+            if (_coreModMissing)
+            {
+                ShowCoreModLockout();
             }
         }
 
@@ -2202,6 +2200,13 @@ namespace HoldfastModdingLauncher
         {
             try
             {
+                if (!VerifyLauncherCoreMod())
+                {
+                    _coreModMissing = true;
+                    ShowCoreModLockout();
+                    return;
+                }
+
                 string holdfastPath = _holdfastManager.FindHoldfastInstallation();
                 if (string.IsNullOrEmpty(holdfastPath))
                 {
@@ -2350,6 +2355,113 @@ namespace HoldfastModdingLauncher
             }
         }
         
+        private void ShowCoreModLockout()
+        {
+            if (_playButton != null) _playButton.Enabled = false;
+            if (_modsPanel != null) _modsPanel.Enabled = false;
+
+            _coreModLockPanel = new Panel
+            {
+                Name = "coreModLockPanel",
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(245, 18, 18, 22)
+            };
+
+            var lockIcon = new Label
+            {
+                Text = "⚠",
+                Font = new Font("Segoe UI", 48F),
+                ForeColor = Color.FromArgb(220, 80, 80),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+
+            var lockTitle = new Label
+            {
+                Text = "CORE MOD MISSING",
+                Font = new Font("Segoe UI", 18F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(220, 80, 80),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+
+            var lockMessage = new Label
+            {
+                Text = "LauncherCoreMod.dll is missing or has been modified.\n\n" +
+                       "The launcher cannot function without this core mod.\n" +
+                       "Use the Mod Browser to install it, then restart the launcher.",
+                Font = new Font("Segoe UI", 11F),
+                ForeColor = Color.FromArgb(180, 180, 180),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Size = new Size(500, 100),
+                BackColor = Color.Transparent
+            };
+
+            var browseButton = new Button
+            {
+                Text = "📦  Open Mod Browser",
+                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                Size = new Size(240, 45),
+                BackColor = Color.FromArgb(28, 28, 35),
+                ForeColor = AccentCyan,
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            browseButton.FlatAppearance.BorderColor = AccentCyan;
+            browseButton.FlatAppearance.BorderSize = 2;
+            browseButton.Click += (s, e) =>
+            {
+                using (var browser = new ModBrowserForm(_modManager, _apiClient))
+                {
+                    browser.ShowDialog(this);
+                }
+
+                // Re-check after mod browser closes
+                _coreModMissing = !VerifyLauncherCoreMod();
+                if (!_coreModMissing)
+                {
+                    this.Controls.Remove(_coreModLockPanel);
+                    _coreModLockPanel.Dispose();
+                    _coreModLockPanel = null;
+                    if (_playButton != null) _playButton.Enabled = true;
+                    if (_modsPanel != null) _modsPanel.Enabled = true;
+                    LoadMods();
+                }
+            };
+
+            var exitButton = new Button
+            {
+                Text = "Exit",
+                Font = new Font("Segoe UI", 10F),
+                Size = new Size(100, 35),
+                BackColor = Color.FromArgb(28, 28, 35),
+                ForeColor = Color.FromArgb(140, 140, 140),
+                FlatStyle = FlatStyle.Flat,
+                Cursor = Cursors.Hand
+            };
+            exitButton.FlatAppearance.BorderColor = Color.FromArgb(80, 80, 80);
+            exitButton.Click += (s, e) => Application.Exit();
+
+            _coreModLockPanel.Controls.AddRange(new Control[] { lockIcon, lockTitle, lockMessage, browseButton, exitButton });
+
+            Action layoutLock = () =>
+            {
+                int cx = _coreModLockPanel.Width / 2;
+                int cy = _coreModLockPanel.Height / 2;
+                lockIcon.Location = new Point(cx - lockIcon.Width / 2, cy - 160);
+                lockTitle.Location = new Point(cx - lockTitle.Width / 2, cy - 80);
+                lockMessage.Location = new Point(cx - lockMessage.Width / 2, cy - 40);
+                browseButton.Location = new Point(cx - browseButton.Width / 2, cy + 75);
+                exitButton.Location = new Point(cx - exitButton.Width / 2, cy + 130);
+            };
+
+            _coreModLockPanel.Resize += (s, e) => layoutLock();
+
+            this.Controls.Add(_coreModLockPanel);
+            _coreModLockPanel.BringToFront();
+            layoutLock();
+        }
+
         /// <summary>
         /// Shows a critical error dialog that prevents the launcher from functioning.
         /// </summary>
