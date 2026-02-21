@@ -1,6 +1,6 @@
 {
-  "version": "1.0.196",
-  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.196/HoldfastModdingLauncher-v1.0.196.zip",
-  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.196",
-  "releaseNotes": "Core mod protection - launcher locks down if LauncherCoreMod is missing, with Mod Browser access to reinstall."
+  "version": "1.0.197",
+  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.197/HoldfastModdingLauncher-v1.0.197.zip",
+  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.197",
+  "releaseNotes": "Fix core mod check - verify existence only, not hash, so re-downloads from server work."
 }

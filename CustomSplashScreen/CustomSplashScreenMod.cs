@@ -18,7 +18,7 @@ namespace CustomSplashScreen
     {
         public const string PLUGIN_GUID = "com.xarkanoth.customsplashscreen";
         public const string PLUGIN_NAME = "Custom Splash Screen";
-        public const string PLUGIN_VERSION = "1.0.17";
+        public const string PLUGIN_VERSION = "1.0.18";
 
         public static ManualLogSource Log;
         public static CustomSplashScreenMod Instance;
@@ -485,17 +485,9 @@ namespace CustomSplashScreen
         {
             _active = false;
 
-            if (_videoPlayer != null)
+            if (_videoPlayer != null && _videoPlayer.isPrepared && _videoPlayer.length > 0)
             {
-                _videoPlayer.loopPointReached -= OnVideoFinished;
-                _videoPlayer.Stop();
-                _videoPlayer = null;
-            }
-
-            int nextIndex = SceneManager.GetActiveScene().buildIndex + 1;
-            if (nextIndex < SceneManager.sceneCountInBuildSettings)
-            {
-                SceneManager.LoadScene(nextIndex);
+                _videoPlayer.time = _videoPlayer.length;
             }
         }
 

@@ -2312,8 +2312,7 @@ namespace HoldfastModdingLauncher
         }
         
         /// <summary>
-        /// Verifies that LauncherCoreMod.dll exists and has the correct hash.
-        /// Returns false if file is missing or hash doesn't match (indicating tampering).
+        /// Verifies that LauncherCoreMod.dll exists in the Mods folder.
         /// </summary>
         private bool VerifyLauncherCoreMod()
         {
@@ -2322,27 +2321,10 @@ namespace HoldfastModdingLauncher
                 string modsFolder = _modManager.GetModsFolderPath();
                 string coreModPath = Path.Combine(modsFolder, LAUNCHER_CORE_MOD_NAME);
                 
-                // Check if file exists
                 if (!File.Exists(coreModPath))
                 {
                     Logger.LogError($"LauncherCoreMod.dll not found at: {coreModPath}");
                     return false;
-                }
-                
-                // Calculate hash of the file
-                byte[] fileBytes = File.ReadAllBytes(coreModPath);
-                using (var sha256 = SHA256.Create())
-                {
-                    byte[] hashBytes = sha256.ComputeHash(fileBytes);
-                    string actualHash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
-                    
-                    // Compare with expected hash
-                    if (!actualHash.Equals(LAUNCHER_CORE_MOD_EXPECTED_HASH, StringComparison.OrdinalIgnoreCase))
-                    {
-                        Logger.LogError($"LauncherCoreMod.dll hash mismatch! Expected: {LAUNCHER_CORE_MOD_EXPECTED_HASH}, Got: {actualHash}");
-                        Logger.LogError("File has been modified or replaced with an unauthorized version.");
-                        return false;
-                    }
                 }
                 
                 Logger.LogInfo("LauncherCoreMod.dll verified successfully");
