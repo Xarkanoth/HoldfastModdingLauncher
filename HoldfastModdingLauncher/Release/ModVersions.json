@@ -25,7 +25,7 @@
                                           "ProjectFolder":  "CustomCrosshairs"
                                       },
                  "LauncherCoreMod":  {
-                                         "Version":  "1.0.12",
+                                         "Version":  "1.0.13",
                                          "Description":  "",
                                          "ProjectFolder":  "LauncherCoreMod",
                                          "DllName":  "LauncherCoreMod.dll",
