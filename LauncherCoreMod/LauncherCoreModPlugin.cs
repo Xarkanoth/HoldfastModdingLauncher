@@ -67,7 +67,7 @@ namespace LauncherCoreMod
     /// - Game event dispatching via IHoldfastSharedMethods (for other mods to subscribe to)
     /// - Master login verification
     /// </summary>
-    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.12")]
+    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.13")]
     public class LauncherCoreModPlugin : BaseUnityPlugin
     {
         public static ManualLogSource Log { get; private set; }
@@ -876,23 +876,40 @@ namespace LauncherCoreMod
         private static void CheckToken()
         {
             _isMasterLoggedIn = false;
+            var log = LauncherCoreModPlugin.Log;
             
             try
             {
-                foreach (string tokenPath in GetPossibleTokenPaths())
+                var paths = GetPossibleTokenPaths();
+                log?.LogInfo($"[MasterLogin] Checking {paths.Length} token paths...");
+                
+                foreach (string tokenPath in paths)
                 {
-                    if (File.Exists(tokenPath))
+                    bool exists = File.Exists(tokenPath);
+                    log?.LogInfo($"[MasterLogin]   Path: {tokenPath} | Exists: {exists}");
+                    
+                    if (exists)
                     {
                         string token = File.ReadAllText(tokenPath).Trim();
-                        if (VerifySecureToken(token))
+                        string preview = token.Length > 20 ? token.Substring(0, 20) + "..." : token;
+                        bool valid = VerifySecureToken(token);
+                        log?.LogInfo($"[MasterLogin]   Token preview: '{preview}' | Valid: {valid}");
+                        
+                        if (valid)
                         {
                             _isMasterLoggedIn = true;
+                            log?.LogInfo($"[MasterLogin]   >>> MASTER LOGIN DETECTED from: {tokenPath}");
                             break;
                         }
                     }
                 }
+                
+                log?.LogInfo($"[MasterLogin] Final result: IsMasterLoggedIn = {_isMasterLoggedIn}");
             }
-            catch { }
+            catch (Exception ex)
+            {
+                log?.LogError($"[MasterLogin] CheckToken error: {ex.Message}");
+            }
         }
         
         private static string[] GetPossibleTokenPaths()
@@ -1064,13 +1081,26 @@ namespace LauncherCoreMod
         {
             try
             {
-                if (MasterLoginManager.IsMasterLoggedIn()) return;
-                if (_officialFilteredField == null) return;
+                bool isMaster = MasterLoginManager.IsMasterLoggedIn();
+                _log?.LogInfo($"[ServerBrowserFilter] Postfix called! IsMaster={isMaster}, FieldFound={_officialFilteredField != null}");
+                
+                if (isMaster)
+                {
+                    _log?.LogInfo("[ServerBrowserFilter] Master user - allowing all servers");
+                    return;
+                }
+                if (_officialFilteredField == null)
+                {
+                    _log?.LogWarning("[ServerBrowserFilter] officialServersListFiltered field is null!");
+                    return;
+                }
                 
                 var list = _officialFilteredField.GetValue(__instance) as System.Collections.IList;
+                _log?.LogInfo($"[ServerBrowserFilter] Official filtered list: {(list != null ? list.Count.ToString() + " servers" : "NULL")}");
+                
                 if (list != null && list.Count > 0)
                 {
-                    _log?.LogInfo($"[ServerBrowserFilter] Removing {list.Count} official servers from filtered list");
+                    _log?.LogInfo($"[ServerBrowserFilter] CLEARING {list.Count} official servers for non-master user");
                     list.Clear();
                 }
             }

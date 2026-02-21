@@ -1,6 +1,6 @@
 {
-  "version": "1.0.199",
-  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.199/HoldfastModdingLauncher-v1.0.199.zip",
-  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.199",
-  "releaseNotes": "Fix master token: only write MASTER_ACCESS_GRANTED for master accounts, delete token for member accounts."
+  "version": "1.0.200",
+  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.200/HoldfastModdingLauncher-v1.0.200.zip",
+  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.200",
+  "releaseNotes": "Fix session restore: encode MASTER/MEMBER role in token file so non-master sessions don't get elevated."
 }

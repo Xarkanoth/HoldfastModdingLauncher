@@ -681,9 +681,10 @@ namespace HoldfastModdingLauncher
         
         private void WriteTokenToAllLocations(string content, string clientName = null)
         {
-            // Write to AppData (primary location) - secure token + client name for launcher verification
+            // Write to AppData: {hash}|{clientName}|{role}
             string primaryPath = GetTokenFilePath();
-            string primaryContent = !string.IsNullOrEmpty(clientName) ? $"{content}|{clientName}" : content;
+            string role = _isMasterLoggedIn ? "MASTER" : "MEMBER";
+            string primaryContent = !string.IsNullOrEmpty(clientName) ? $"{content}|{clientName}|{role}" : content;
             File.WriteAllText(primaryPath, primaryContent);
             
             // Write master token to BepInEx locations ONLY for master users.
@@ -1059,14 +1060,12 @@ namespace HoldfastModdingLauncher
 
         private async void CheckExistingLogin()
         {
-            // If the login gate handled authentication, skip this
             if (_apiClient.IsAuthenticated)
             {
                 UpdateLoginStatus(true);
                 return;
             }
 
-            // Fallback: check local token file for offline master access
             try
             {
                 string tokenPath = GetTokenFilePath();
@@ -1074,24 +1073,19 @@ namespace HoldfastModdingLauncher
                 {
                     string rawContent = File.ReadAllText(tokenPath).Trim();
                     
-                    string token = rawContent;
-                    string clientName = null;
-                    int separatorIndex = rawContent.LastIndexOf('|');
-                    if (separatorIndex > 0)
-                    {
-                        token = rawContent.Substring(0, separatorIndex);
-                        clientName = rawContent.Substring(separatorIndex + 1);
-                    }
+                    // Token format: {hash}|{clientName}|{role}
+                    // Legacy format: {hash}|{clientName} (treated as MEMBER)
+                    string[] parts = rawContent.Split('|');
+                    string token = parts[0];
+                    string clientName = parts.Length > 1 ? parts[1] : null;
+                    string role = parts.Length > 2 ? parts[2] : "MEMBER";
                     
                     if (VerifySecureToken(token) || token == "MASTER_ACCESS_GRANTED")
                     {
-                        if (token == "MASTER_ACCESS_GRANTED")
-                        {
-                            string secureToken = CreateSecureToken();
-                            WriteTokenToAllLocations(secureToken, clientName);
-                        }
-                        _isMasterLoggedIn = true;
+                        bool isMaster = role.Equals("MASTER", StringComparison.OrdinalIgnoreCase);
+                        _isMasterLoggedIn = isMaster;
                         _loggedInClientName = clientName;
+                        WriteTokenToAllLocations(CreateSecureToken(), clientName);
                         UpdateLoginStatus(true);
                     }
                     else
