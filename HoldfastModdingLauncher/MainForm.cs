@@ -1694,7 +1694,7 @@ namespace HoldfastModdingLauncher
             if (_selectedModFileName.Equals("CustomSplashScreen.dll", StringComparison.OrdinalIgnoreCase) ||
                 modNameNoExt.Equals("CustomSplashScreen", StringComparison.OrdinalIgnoreCase))
             {
-                SplashScreenSettingsForm.ShowSettings(holdfastPath);
+                SplashScreenSettingsForm.ShowSettings(holdfastPath, _apiClient);
             }
             else if (_selectedModFileName.Equals("CustomCrosshairs.dll", StringComparison.OrdinalIgnoreCase) ||
                      modNameNoExt.Equals("CustomCrosshairs", StringComparison.OrdinalIgnoreCase))
@@ -2360,8 +2360,9 @@ namespace HoldfastModdingLauncher
                 using (var errorForm = new Form())
                 {
                     errorForm.Text = title;
-                    errorForm.Size = new Size(500, 250);
+                    errorForm.AutoScaleMode = AutoScaleMode.None;
                     errorForm.FormBorderStyle = FormBorderStyle.FixedDialog;
+                    errorForm.ClientSize = new Size(500, 250);
                     errorForm.StartPosition = FormStartPosition.CenterScreen;
                     errorForm.BackColor = DarkBg;
                     errorForm.ForeColor = TextLight;
@@ -2369,12 +2370,10 @@ namespace HoldfastModdingLauncher
                     errorForm.MinimizeBox = false;
                     errorForm.ControlBox = true;
                     
-                    // Title bar
                     var titleBar = new Panel
                     {
                         BackColor = Color.FromArgb(100, 0, 0),
-                        Location = new Point(0, 0),
-                        Size = new Size(500, 50)
+                        Location = new Point(0, 0)
                     };
                     var titleLabel = new Label
                     {
@@ -2388,24 +2387,19 @@ namespace HoldfastModdingLauncher
                     titleBar.Controls.Add(titleLabel);
                     errorForm.Controls.Add(titleBar);
                     
-                    // Message
                     var messageLabel = new Label
                     {
                         Text = message,
                         Font = new Font("Segoe UI", 10F),
                         ForeColor = TextLight,
-                        Location = new Point(20, 70),
-                        Size = new Size(460, 120),
                         BackColor = Color.Transparent
                     };
                     errorForm.Controls.Add(messageLabel);
                     
-                    // OK button
                     var okButton = new Button
                     {
                         Text = "OK",
                         Size = new Size(100, 35),
-                        Location = new Point(200, 200),
                         BackColor = Color.FromArgb(60, 60, 70),
                         ForeColor = TextLight,
                         FlatStyle = FlatStyle.Flat,
@@ -2416,12 +2410,21 @@ namespace HoldfastModdingLauncher
                     errorForm.Controls.Add(okButton);
                     errorForm.AcceptButton = okButton;
                     
+                    errorForm.Layout += (s, le) =>
+                    {
+                        int w = errorForm.ClientSize.Width;
+                        int h = errorForm.ClientSize.Height;
+                        titleBar.Size = new Size(w, 50);
+                        messageLabel.Location = new Point(20, 70);
+                        messageLabel.Size = new Size(w - 40, h - 130);
+                        okButton.Location = new Point((w - 100) / 2, h - 45);
+                    };
+                    
                     errorForm.ShowDialog();
                 }
             }
             catch
             {
-                // Fallback to standard message box if custom form fails
                 MessageBox.Show(message, title, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -2431,18 +2434,17 @@ namespace HoldfastModdingLauncher
             using (var msgForm = new Form())
             {
                 msgForm.Text = title;
-                msgForm.Size = new Size(420, 180);
+                msgForm.AutoScaleMode = AutoScaleMode.None;
                 msgForm.FormBorderStyle = FormBorderStyle.None;
+                msgForm.ClientSize = new Size(420, 180);
                 msgForm.StartPosition = FormStartPosition.CenterParent;
                 msgForm.BackColor = DarkBg;
                 msgForm.ForeColor = TextLight;
                 
-                // Title bar
                 var titleBar = new Panel
                 {
                     BackColor = DarkPanel,
-                    Location = new Point(0, 0),
-                    Size = new Size(420, 45)
+                    Location = new Point(0, 0)
                 };
                 msgForm.Controls.Add(titleBar);
                 
@@ -2470,25 +2472,20 @@ namespace HoldfastModdingLauncher
                 };
                 titleBar.Controls.Add(titleLbl);
                 
-                // Message
                 var msgLabel = new Label
                 {
                     Text = message,
                     Font = new Font("Segoe UI", 10F),
                     ForeColor = TextLight,
-                    Location = new Point(22, 60),
-                    Size = new Size(380, 65),
                     BackColor = Color.Transparent
                 };
                 msgForm.Controls.Add(msgLabel);
                 
-                // OK button
                 var okBtn = new Button
                 {
                     Text = "OK",
                     Font = new Font("Segoe UI", 10F, FontStyle.Bold),
                     Size = new Size(85, 35),
-                    Location = new Point(315, 135),
                     BackColor = DarkPanel,
                     ForeColor = AccentCyan,
                     FlatStyle = FlatStyle.Flat,
@@ -2500,7 +2497,16 @@ namespace HoldfastModdingLauncher
                 okBtn.FlatAppearance.MouseOverBackColor = Color.FromArgb(40, 60, 60);
                 msgForm.Controls.Add(okBtn);
                 
-                // Border
+                msgForm.Layout += (s, le) =>
+                {
+                    int w = msgForm.ClientSize.Width;
+                    int h = msgForm.ClientSize.Height;
+                    titleBar.Size = new Size(w, 45);
+                    msgLabel.Location = new Point(22, 60);
+                    msgLabel.Size = new Size(w - 44, h - 110);
+                    okBtn.Location = new Point(w - 85 - 20, h - 35 - 10);
+                };
+                
                 msgForm.Paint += (s, pe) =>
                 {
                     using (var pen = new Pen(Color.FromArgb(50, 50, 55), 2))

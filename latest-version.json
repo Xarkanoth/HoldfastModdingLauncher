@@ -1,6 +1,6 @@
 {
-  "version": "1.0.193",
-  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.193/HoldfastModdingLauncher-v1.0.193.zip",
-  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.193",
-  "releaseNotes": "Fix mod version tracking - downloaded mods no longer show false update prompts."
+  "version": "1.0.195",
+  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.195/HoldfastModdingLauncher-v1.0.195.zip",
+  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.195",
+  "releaseNotes": "Splash screen settings now load videos from the server instead of GitHub."
 }

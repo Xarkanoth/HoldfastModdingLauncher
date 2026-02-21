@@ -2,16 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using HoldfastModdingLauncher.Services;
 
 namespace HoldfastModdingLauncher
 {
     public class SplashScreenSettingsForm : Form
     {
-        // Dark theme colors
         private static readonly Color DarkBg = Color.FromArgb(18, 18, 22);
         private static readonly Color DarkPanel = Color.FromArgb(28, 28, 35);
         private static readonly Color AccentCyan = Color.FromArgb(0, 255, 255);
@@ -29,43 +28,27 @@ namespace HoldfastModdingLauncher
         private string _splashVideosPath;
         private string _holdfastPath;
         private List<SplashVideoOption> _videos;
-        private static readonly HttpClient _httpClient;
-        
-        static SplashScreenSettingsForm()
-        {
-            // Configure HttpClient to follow redirects (GitHub uses redirects for large files)
-            var handler = new HttpClientHandler
-            {
-                AllowAutoRedirect = true,
-                MaxAutomaticRedirections = 10
-            };
-            _httpClient = new HttpClient(handler);
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "HoldfastModdingLauncher");
-        }
+        private readonly ApiClient _apiClient;
 
-        public SplashScreenSettingsForm(string holdfastPath)
+        public SplashScreenSettingsForm(string holdfastPath, ApiClient apiClient)
         {
             _holdfastPath = holdfastPath;
-            
-            // Config will be saved to BepInEx/config folder
+            _apiClient = apiClient;
+
             string bepInExConfigPath = Path.Combine(holdfastPath, "BepInEx", "config");
             _configPath = Path.Combine(bepInExConfigPath, "com.xarkanoth.customsplashscreen.json");
-            
-            // Videos are stored in BepInEx/SplashVideos folder
             _splashVideosPath = Path.Combine(holdfastPath, "BepInEx", "SplashVideos");
 
             InitializeVideos();
             LoadConfig();
             InitializeUI();
             CheckDownloadedVideos();
-            
-            // Fetch available videos from GitHub (must be after InitializeUI so _statusLabel exists)
-            _ = LoadVideosFromGitHubAsync();
+
+            _ = LoadVideosFromServerAsync();
         }
 
         private void InitializeVideos()
         {
-            // Start with default option (GitHub videos are loaded after UI is initialized)
             _videos = new List<SplashVideoOption>
             {
                 new SplashVideoOption
@@ -78,103 +61,88 @@ namespace HoldfastModdingLauncher
                 }
             };
         }
-        
-        private async Task LoadVideosFromGitHubAsync()
+
+        private async Task LoadVideosFromServerAsync()
         {
             try
             {
                 if (_statusLabel != null)
                 {
-                    _statusLabel.Text = "Loading videos from GitHub...";
+                    _statusLabel.Text = "Loading videos from server...";
                     _statusLabel.Visible = true;
                 }
-                
-                // Use raw.githubusercontent.com to avoid GitHub API rate limits (60/hr unauthenticated)
-                string manifestUrl = "https://raw.githubusercontent.com/Xarkanoth/HoldfastMods/main/SplashVideos/videos.json";
-                string response = await _httpClient.GetStringAsync(manifestUrl);
-                
-                using (JsonDocument doc = JsonDocument.Parse(response))
+
+                if (_apiClient == null || !_apiClient.IsAuthenticated)
                 {
-                    var root = doc.RootElement;
-                    
-                    if (root.ValueKind == JsonValueKind.Array)
-                    {
-                        foreach (var item in root.EnumerateArray())
-                        {
-                            string fileName = item.TryGetProperty("name", out var nameElement) 
-                                ? nameElement.GetString() ?? "" 
-                                : "";
-                            
-                            if (string.IsNullOrEmpty(fileName))
-                                continue;
-                            
-                            string displayName = item.TryGetProperty("displayName", out var displayElement) 
-                                ? displayElement.GetString() ?? Path.GetFileNameWithoutExtension(fileName)
-                                : Path.GetFileNameWithoutExtension(fileName);
-                            
-                            string description = item.TryGetProperty("description", out var descElement) 
-                                ? descElement.GetString() ?? ""
-                                : $"Custom splash screen video: {displayName}";
-                            
-                            string downloadUrl = item.TryGetProperty("downloadUrl", out var urlElement) 
-                                ? urlElement.GetString() ?? "" 
-                                : "";
-                            
-                            string videoId = Path.GetFileNameWithoutExtension(fileName)
-                                .ToLowerInvariant()
-                                .Replace(" ", "_")
-                                .Replace("-", "_");
-                            
-                            var video = new SplashVideoOption
-                            {
-                                Id = videoId,
-                                Name = displayName,
-                                Description = description,
-                                Url = downloadUrl,
-                                LocalFileName = fileName
-                            };
-                            
-                            string localPath = Path.Combine(_splashVideosPath, fileName);
-                            video.IsDownloaded = File.Exists(localPath);
-                            
-                            _videos.Add(video);
-                        }
-                        
-                        if (!this.IsDisposed && this.IsHandleCreated)
-                        {
-                            this.Invoke((MethodInvoker)delegate
-                            {
-                                RefreshVideoList();
-                                CheckDownloadedVideos();
-                                if (_statusLabel != null)
-                                    _statusLabel.Visible = false;
-                            });
-                        }
-                    }
+                    throw new Exception("Not authenticated. Please log in first.");
                 }
+
+                var serverVideos = await _apiClient.GetSplashVideosAsync();
+                if (serverVideos == null || serverVideos.Count == 0)
+                {
+                    Core.Logger.LogInfo("Server returned no splash videos");
+                    UpdateUIAfterLoad(true);
+                    return;
+                }
+
+                foreach (var sv in serverVideos)
+                {
+                    string videoId = string.IsNullOrEmpty(sv.Id)
+                        ? Path.GetFileNameWithoutExtension(sv.FileName)
+                            .ToLowerInvariant().Replace(" ", "_").Replace("-", "_")
+                        : sv.Id;
+
+                    var video = new SplashVideoOption
+                    {
+                        Id = videoId,
+                        Name = sv.Name,
+                        Description = sv.Description,
+                        Url = videoId,
+                        LocalFileName = sv.FileName
+                    };
+
+                    string localPath = Path.Combine(_splashVideosPath, sv.FileName);
+                    video.IsDownloaded = File.Exists(localPath);
+
+                    _videos.Add(video);
+                }
+
+                Core.Logger.LogInfo($"Loaded {serverVideos.Count} splash video(s) from server");
+                UpdateUIAfterLoad(true);
             }
             catch (Exception ex)
             {
-                Core.Logger.LogError($"Failed to load videos from GitHub: {ex.Message}");
-                
-                try
-                {
-                    if (!this.IsDisposed && this.IsHandleCreated)
-                    {
-                        this.Invoke((MethodInvoker)delegate
-                        {
-                            RefreshVideoList();
-                            if (_statusLabel != null)
-                            {
-                                _statusLabel.Text = $"Failed to load videos: {ex.Message}";
-                                _statusLabel.ForeColor = Color.Orange;
-                                _statusLabel.Visible = true;
-                            }
-                        });
-                    }
-                }
-                catch { }
+                Core.Logger.LogError($"Failed to load videos from server: {ex.Message}");
+                UpdateUIAfterLoad(false, ex.Message);
             }
+        }
+
+        private void UpdateUIAfterLoad(bool success, string errorMessage = null)
+        {
+            try
+            {
+                if (this.IsDisposed || !this.IsHandleCreated) return;
+
+                this.Invoke((MethodInvoker)delegate
+                {
+                    RefreshVideoList();
+                    CheckDownloadedVideos();
+                    if (_statusLabel != null)
+                    {
+                        if (success)
+                        {
+                            _statusLabel.Visible = false;
+                        }
+                        else
+                        {
+                            _statusLabel.Text = $"Failed to load videos: {errorMessage}";
+                            _statusLabel.ForeColor = Color.Orange;
+                            _statusLabel.Visible = true;
+                        }
+                    }
+                });
+            }
+            catch { }
         }
 
         private void CheckDownloadedVideos()
@@ -213,12 +181,10 @@ namespace HoldfastModdingLauncher
         {
             try
             {
-                // Find selected video
                 var selectedVideo = _videos.Find(v => v.Id == _selectedVideoId);
-                
-                // If it's a downloadable video and not downloaded yet, download it
-                if (selectedVideo != null && 
-                    !string.IsNullOrEmpty(selectedVideo.Url) && 
+
+                if (selectedVideo != null &&
+                    !string.IsNullOrEmpty(selectedVideo.Url) &&
                     !string.IsNullOrEmpty(selectedVideo.LocalFileName) &&
                     !selectedVideo.IsDownloaded)
                 {
@@ -235,11 +201,10 @@ namespace HoldfastModdingLauncher
                         _saveButton.Enabled = true;
                         return false;
                     }
-                    
+
                     selectedVideo.IsDownloaded = true;
                 }
 
-                // Save config
                 string directory = Path.GetDirectoryName(_configPath);
                 if (!Directory.Exists(directory))
                 {
@@ -252,9 +217,9 @@ namespace HoldfastModdingLauncher
                     Enabled = true
                 };
 
-                string json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(_configPath, json);
-                
+                string configJson = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(_configPath, configJson);
+
                 _statusLabel.Text = "Settings saved!";
                 return true;
             }
@@ -269,7 +234,6 @@ namespace HoldfastModdingLauncher
         {
             try
             {
-                // Ensure directory exists
                 if (!Directory.Exists(_splashVideosPath))
                 {
                     Directory.CreateDirectory(_splashVideosPath);
@@ -277,10 +241,16 @@ namespace HoldfastModdingLauncher
 
                 string localPath = Path.Combine(_splashVideosPath, video.LocalFileName);
 
-                using (var response = await _httpClient.GetAsync(video.Url, HttpCompletionOption.ResponseHeadersRead))
+                // video.Url holds the server video ID for the API endpoint
+                using (var response = await _apiClient.DownloadSplashVideoAsync(video.Url))
                 {
-                    response.EnsureSuccessStatusCode();
-                    
+                    if (response == null || !response.IsSuccessStatusCode)
+                    {
+                        string status = response?.StatusCode.ToString() ?? "No response";
+                        Core.Logger.LogError($"Server returned {status} for splash video download");
+                        return false;
+                    }
+
                     long totalBytes = response.Content.Headers.ContentLength ?? -1;
                     long bytesRead = 0;
                     var startTime = DateTime.Now;
@@ -293,17 +263,16 @@ namespace HoldfastModdingLauncher
                     {
                         byte[] buffer = new byte[8192];
                         int read;
-                        
+
                         while ((read = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                         {
                             await fileStream.WriteAsync(buffer, 0, read);
                             bytesRead += read;
-                            
+
                             if (totalBytes > 0)
                             {
                                 int percentage = (int)((bytesRead * 100) / totalBytes);
-                                
-                                // Calculate speed every 500ms
+
                                 var timeSinceLastUpdate = (DateTime.Now - lastUpdateTime).TotalSeconds;
                                 if (timeSinceLastUpdate >= 0.5)
                                 {
@@ -311,8 +280,7 @@ namespace HoldfastModdingLauncher
                                     lastBytesRead = bytesRead;
                                     lastUpdateTime = DateTime.Now;
                                 }
-                                
-                                // Calculate ETA
+
                                 string etaText = "";
                                 if (currentSpeed > 0)
                                 {
@@ -322,7 +290,7 @@ namespace HoldfastModdingLauncher
                                     else
                                         etaText = $"~{(int)(remainingSeconds / 60)}m {(int)(remainingSeconds % 60)}s";
                                 }
-                                
+
                                 this.Invoke((MethodInvoker)delegate
                                 {
                                     _progressBar.Value = percentage;
@@ -338,7 +306,7 @@ namespace HoldfastModdingLauncher
             }
             catch (Exception ex)
             {
-                Core.Logger.LogError($"Failed to download video: {ex.Message}");
+                Core.Logger.LogError($"Failed to download video from server: {ex.Message}");
                 return false;
             }
         }
@@ -367,7 +335,6 @@ namespace HoldfastModdingLauncher
             this.BackColor = DarkBg;
             this.ForeColor = TextLight;
 
-            // Title
             var titleLabel = new Label
             {
                 Text = "Select Splash Screen Video",
@@ -378,7 +345,6 @@ namespace HoldfastModdingLauncher
             };
             this.Controls.Add(titleLabel);
 
-            // Description
             var descLabel = new Label
             {
                 Text = "Choose which video plays when Holdfast starts:",
@@ -389,7 +355,6 @@ namespace HoldfastModdingLauncher
             };
             this.Controls.Add(descLabel);
 
-            // Video list panel
             _videoListPanel = new Panel
             {
                 Location = new Point(20, 75),
@@ -399,7 +364,6 @@ namespace HoldfastModdingLauncher
             };
             this.Controls.Add(_videoListPanel);
 
-            // Populate video list
             int yPos = 10;
             foreach (var video in _videos)
             {
@@ -408,7 +372,6 @@ namespace HoldfastModdingLauncher
                 yPos += 70;
             }
 
-            // Progress bar (hidden by default)
             _progressBar = new ProgressBar
             {
                 Location = new Point(20, 435),
@@ -418,7 +381,6 @@ namespace HoldfastModdingLauncher
             };
             this.Controls.Add(_progressBar);
 
-            // Status label (hidden by default)
             _statusLabel = new Label
             {
                 Location = new Point(20, 458),
@@ -429,7 +391,6 @@ namespace HoldfastModdingLauncher
             };
             this.Controls.Add(_statusLabel);
 
-            // Buttons
             var cancelButton = new Button
             {
                 Text = "Cancel",
@@ -482,7 +443,6 @@ namespace HoldfastModdingLauncher
                 Tag = video.Id
             };
 
-            // Selection indicator
             var selectIndicator = new Label
             {
                 Text = isSelected ? "●" : "○",
@@ -494,13 +454,12 @@ namespace HoldfastModdingLauncher
             };
             panel.Controls.Add(selectIndicator);
 
-            // Video name with download status
             string displayName = video.Name;
             if (video.Id != "default" && video.Id != "custom")
             {
                 displayName += video.IsDownloaded ? " ✓" : " ⬇";
             }
-            
+
             var nameLabel = new Label
             {
                 Text = displayName,
@@ -512,13 +471,12 @@ namespace HoldfastModdingLauncher
             };
             panel.Controls.Add(nameLabel);
 
-            // Video description - add download note if needed
             string description = video.Description;
             if (needsDownload && video.Id != "custom")
             {
                 description += " (will download on save)";
             }
-            
+
             var descLabel = new Label
             {
                 Text = description,
@@ -530,7 +488,6 @@ namespace HoldfastModdingLauncher
             };
             panel.Controls.Add(descLabel);
 
-            // Click handler for entire panel
             Action selectAction = () => SelectVideo(video.Id);
             panel.Click += (s, e) => selectAction();
             selectIndicator.Click += (s, e) => selectAction();
@@ -558,9 +515,9 @@ namespace HoldfastModdingLauncher
             }
         }
 
-        public static void ShowSettings(string holdfastPath)
+        public static void ShowSettings(string holdfastPath, ApiClient apiClient)
         {
-            using (var form = new SplashScreenSettingsForm(holdfastPath))
+            using (var form = new SplashScreenSettingsForm(holdfastPath, apiClient))
             {
                 form.ShowDialog();
             }
@@ -583,4 +540,3 @@ namespace HoldfastModdingLauncher
         public bool Enabled { get; set; } = true;
     }
 }
-

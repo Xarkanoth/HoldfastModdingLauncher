@@ -160,6 +160,24 @@ namespace HoldfastModdingLauncher.Services
         public string ReleaseNotes { get; set; } = string.Empty;
     }
 
+    public class ApiSplashVideoInfo
+    {
+        [JsonPropertyName("id")]
+        public string Id { get; set; } = string.Empty;
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; } = string.Empty;
+
+        [JsonPropertyName("fileName")]
+        public string FileName { get; set; } = string.Empty;
+
+        [JsonPropertyName("fileSize")]
+        public long FileSize { get; set; }
+    }
+
     public class StoredAuth
     {
         [JsonPropertyName("accessToken")]
@@ -574,6 +592,30 @@ namespace HoldfastModdingLauncher.Services
                 _isAvailable = false;
                 return false;
             }
+        }
+
+        public async Task<List<ApiSplashVideoInfo>> GetSplashVideosAsync()
+        {
+            var response = await AuthenticatedGetAsync("/api/splash-videos");
+            if (response == null || !response.IsSuccessStatusCode) return null;
+
+            var json = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<List<ApiSplashVideoInfo>>(json);
+        }
+
+        public async Task<HttpResponseMessage> DownloadSplashVideoAsync(string videoId)
+        {
+            if (!IsAuthenticated) return null;
+
+            if (_auth.ExpiresAt < DateTime.UtcNow.AddMinutes(2))
+            {
+                var refreshed = await RefreshTokenAsync();
+                if (!refreshed) return null;
+            }
+
+            var request = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/api/splash-videos/{videoId}/download");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _auth.AccessToken);
+            return await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
         }
 
         #endregion
