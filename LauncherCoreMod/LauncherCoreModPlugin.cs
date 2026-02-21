@@ -67,7 +67,7 @@ namespace LauncherCoreMod
     /// - Game event dispatching via IHoldfastSharedMethods (for other mods to subscribe to)
     /// - Master login verification
     /// </summary>
-    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.11")]
+    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.12")]
     public class LauncherCoreModPlugin : BaseUnityPlugin
     {
         public static ManualLogSource Log { get; private set; }
@@ -948,33 +948,27 @@ namespace LauncherCoreMod
     #region Server Browser Filter
     
     /// <summary>
-    /// Filters official "Anvil Game Studios Official" servers from the server browser
-    /// unless the user is master logged in via the launcher.
+    /// Removes official servers from the filtered data lists inside ClientLobbyManager
+    /// so they never reach the virtualized LoopListView2 UI at all.
+    /// Non-master users will only see community servers.
     /// </summary>
     public class ServerBrowserFilter
     {
         private static ManualLogSource _log => LauncherCoreModPlugin.Log;
-        private static float _lastTokenCheck = 0f;
-        private const float TOKEN_CHECK_INTERVAL = 5f;
         
-        // Harmony
         private static Harmony _harmony;
         private static bool _patchesApplied = false;
         
-        // UI paths
-        private const string SERVER_BROWSER_PATH = "MainCanvas/Main Menu Panels/Panel Container/Play/Server Browser/Server Browser Container/Browser Container/Scroll View/Viewport/Content";
-        private const string CUSTOM_SERVER_BUTTON_PATH = "MainCanvas/Main Menu Panels/Panel Container/Play/Server Browser/Server Browser Container/Bottom Buttons Layout/Custom Server Button";
+        private static FieldInfo _officialFilteredField;
         
-        // Tracking
-        private static HashSet<int> _hiddenServerInstanceIds = new HashSet<int>();
+        private const string CUSTOM_SERVER_BUTTON_PATH = "MainCanvas/Main Menu Panels/Panel Container/Play/Server Browser/Server Browser Container/Bottom Buttons Layout/Custom Server Button";
         private static bool _customServerButtonHidden = false;
-        private static float _lastBrowserOpenTime = 0f;
-        private static float _lastServerScan = 0f;
-        private const float SERVER_SCAN_INTERVAL = 0.5f;
+        private static float _lastUiScan = 0f;
+        private const float UI_SCAN_INTERVAL = 1f;
         
         public void Initialize()
         {
-            _log?.LogInfo("[ServerBrowserFilter] Initializing...");
+            _log?.LogInfo("[ServerBrowserFilter] Initializing data-level filter...");
             ApplyHarmonyPatches();
             _log?.LogInfo($"[ServerBrowserFilter] Ready (Master login: {MasterLoginManager.IsMasterLoggedIn()})");
         }
@@ -992,29 +986,36 @@ namespace LauncherCoreMod
             {
                 _harmony = new Harmony("com.xarkanoth.launchercoremod.serverbrowserfilter");
                 
-                // Find HarperServerBrowserItem.Bind method
-                Type browserItemType = FindType("HarperServerBrowserItem");
-                if (browserItemType == null)
+                Type lobbyManagerType = FindType("ClientLobbyManager");
+                if (lobbyManagerType == null)
                 {
-                    _log?.LogWarning("[ServerBrowserFilter] HarperServerBrowserItem not found - using fallback filtering");
+                    _log?.LogWarning("[ServerBrowserFilter] ClientLobbyManager type not found");
                     return;
                 }
                 
-                MethodInfo bindMethod = browserItemType.GetMethod("Bind", 
-                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                _officialFilteredField = lobbyManagerType.GetField("officialServersListFiltered",
+                    BindingFlags.NonPublic | BindingFlags.Instance);
                 
-                if (bindMethod != null)
+                if (_officialFilteredField == null)
                 {
-                    var prefix = typeof(ServerBrowserFilter).GetMethod(nameof(Prefix_OnBind), 
+                    _log?.LogWarning("[ServerBrowserFilter] officialServersListFiltered field not found");
+                    return;
+                }
+                
+                MethodInfo updateMethod = lobbyManagerType.GetMethod("UpdateFilteredLists",
+                    BindingFlags.Public | BindingFlags.Instance);
+                
+                if (updateMethod != null)
+                {
+                    var postfix = typeof(ServerBrowserFilter).GetMethod(nameof(Postfix_UpdateFilteredLists),
                         BindingFlags.Static | BindingFlags.NonPublic);
-                    
-                    _harmony.Patch(bindMethod, prefix: new HarmonyMethod(prefix));
+                    _harmony.Patch(updateMethod, postfix: new HarmonyMethod(postfix));
                     _patchesApplied = true;
-                    _log?.LogInfo("[ServerBrowserFilter] ✓ Harmony patch applied to HarperServerBrowserItem.Bind");
+                    _log?.LogInfo("[ServerBrowserFilter] Harmony postfix on ClientLobbyManager.UpdateFilteredLists applied");
                 }
                 else
                 {
-                    _log?.LogWarning("[ServerBrowserFilter] Bind method not found - using fallback filtering");
+                    _log?.LogWarning("[ServerBrowserFilter] UpdateFilteredLists method not found");
                 }
             }
             catch (Exception ex)
@@ -1055,175 +1056,56 @@ namespace LauncherCoreMod
         }
         
         /// <summary>
-        /// Harmony PREFIX - SKIP binding official servers entirely
+        /// After the game rebuilds its filtered server lists, clear the official list
+        /// for non-master users. TotalFilteredServers and ResolveServerInfoFiltered
+        /// both read from this list, so the UI never sees them.
         /// </summary>
-        private static bool Prefix_OnBind(object __instance, object serverTarget, int itemIndex)
+        private static void Postfix_UpdateFilteredLists(object __instance)
         {
             try
             {
-                if (MasterLoginManager.IsMasterLoggedIn()) return true;
+                if (MasterLoginManager.IsMasterLoggedIn()) return;
+                if (_officialFilteredField == null) return;
                 
-                // Extract server name from ValueTuple<Int32, String, Int32> - Item2 is server name
-                string serverName = ExtractServerNameFromTuple(serverTarget);
-                
-                if (ShouldFilterServer(serverName))
+                var list = _officialFilteredField.GetValue(__instance) as System.Collections.IList;
+                if (list != null && list.Count > 0)
                 {
-                    var mb = __instance as MonoBehaviour;
-                    if (mb != null)
-                    {
-                        HideServerItem(mb.transform);
-                    }
-                    return false; // Skip Bind entirely
-                }
-                else
-                {
-                    var mb = __instance as MonoBehaviour;
-                    if (mb != null)
-                    {
-                        ShowServerItem(mb.transform);
-                    }
+                    _log?.LogInfo($"[ServerBrowserFilter] Removing {list.Count} official servers from filtered list");
+                    list.Clear();
                 }
             }
-            catch { }
-            
-            return true;
-        }
-        
-        private static string ExtractServerNameFromTuple(object serverTarget)
-        {
-            if (serverTarget == null) return null;
-            
-            try
+            catch (Exception ex)
             {
-                var item2Field = serverTarget.GetType().GetField("Item2");
-                if (item2Field != null)
-                {
-                    return item2Field.GetValue(serverTarget) as string;
-                }
+                _log?.LogError($"[ServerBrowserFilter] Postfix error: {ex.Message}");
             }
-            catch { }
-            
-            return null;
-        }
-        
-        private static void HideServerItem(Transform serverItem)
-        {
-            try
-            {
-                int instanceId = serverItem.gameObject.GetInstanceID();
-                
-                CanvasGroup canvasGroup = serverItem.gameObject.GetComponent<CanvasGroup>();
-                if (canvasGroup == null)
-                    canvasGroup = serverItem.gameObject.AddComponent<CanvasGroup>();
-                
-                canvasGroup.alpha = 0f;
-                canvasGroup.blocksRaycasts = false;
-                canvasGroup.interactable = false;
-                
-                LayoutElement layoutElement = serverItem.gameObject.GetComponent<LayoutElement>();
-                if (layoutElement == null)
-                    layoutElement = serverItem.gameObject.AddComponent<LayoutElement>();
-                
-                layoutElement.preferredHeight = 0f;
-                layoutElement.minHeight = 0f;
-                layoutElement.flexibleHeight = 0f;
-                layoutElement.ignoreLayout = true;
-                
-                serverItem.localScale = Vector3.zero;
-                
-                _hiddenServerInstanceIds.Add(instanceId);
-            }
-            catch { }
-        }
-        
-        private static void ShowServerItem(Transform serverItem)
-        {
-            try
-            {
-                int instanceId = serverItem.gameObject.GetInstanceID();
-                
-                if (!_hiddenServerInstanceIds.Contains(instanceId)) return;
-                
-                CanvasGroup canvasGroup = serverItem.gameObject.GetComponent<CanvasGroup>();
-                if (canvasGroup != null)
-                {
-                    canvasGroup.alpha = 1f;
-                    canvasGroup.blocksRaycasts = true;
-                    canvasGroup.interactable = true;
-                }
-                
-                LayoutElement layoutElement = serverItem.gameObject.GetComponent<LayoutElement>();
-                if (layoutElement != null)
-                {
-                    layoutElement.preferredHeight = -1f;
-                    layoutElement.minHeight = -1f;
-                    layoutElement.flexibleHeight = -1f;
-                    layoutElement.ignoreLayout = false;
-                }
-                
-                serverItem.localScale = Vector3.one;
-                
-                _hiddenServerInstanceIds.Remove(instanceId);
-            }
-            catch { }
         }
         
         public void OnUpdate()
         {
             if (MasterLoginManager.IsMasterLoggedIn()) return;
             
-            // Fallback UI filtering
-            if (Time.time - _lastServerScan > SERVER_SCAN_INTERVAL)
+            if (Time.time - _lastUiScan > UI_SCAN_INTERVAL)
             {
-                _lastServerScan = Time.time;
-                FallbackFilterServerBrowser();
+                _lastUiScan = Time.time;
+                HideCustomServerButton();
             }
         }
         
-        private void FallbackFilterServerBrowser()
+        private void HideCustomServerButton()
         {
+            if (_customServerButtonHidden) return;
+            
             try
             {
-                GameObject contentObj = GameObject.Find(SERVER_BROWSER_PATH);
-                if (contentObj == null)
+                GameObject customBtn = GameObject.Find(CUSTOM_SERVER_BUTTON_PATH);
+                if (customBtn != null)
                 {
-                    if (_hiddenServerInstanceIds.Count > 0)
-                    {
-                        _hiddenServerInstanceIds.Clear();
-                        _customServerButtonHidden = false;
-                        _lastBrowserOpenTime = 0f;
-                    }
-                    return;
-                }
-                
-                if (_lastBrowserOpenTime == 0f)
-                {
-                    _lastBrowserOpenTime = Time.time;
-                    _hiddenServerInstanceIds.Clear();
-                    _customServerButtonHidden = false;
-                }
-                
-                // Hide Custom Server Button
-                if (!_customServerButtonHidden)
-                {
-                    GameObject customBtn = GameObject.Find(CUSTOM_SERVER_BUTTON_PATH);
-                    if (customBtn != null)
-                    {
-                        customBtn.SetActive(false);
-                        _customServerButtonHidden = true;
-                        _log?.LogInfo("[ServerBrowserFilter] Hidden Custom Server Button");
-                    }
+                    customBtn.SetActive(false);
+                    _customServerButtonHidden = true;
+                    _log?.LogInfo("[ServerBrowserFilter] Hidden Custom Server Button");
                 }
             }
             catch { }
-        }
-        
-        public static bool ShouldFilterServer(string serverName)
-        {
-            if (string.IsNullOrEmpty(serverName)) return false;
-            if (MasterLoginManager.IsMasterLoggedIn()) return false;
-            
-            return serverName.StartsWith("Anvil Game Studios Official", StringComparison.OrdinalIgnoreCase);
         }
     }
     
