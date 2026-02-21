@@ -686,35 +686,38 @@ namespace HoldfastModdingLauncher
             string primaryContent = !string.IsNullOrEmpty(clientName) ? $"{content}|{clientName}" : content;
             File.WriteAllText(primaryPath, primaryContent);
             
-            // Also try to write to the game's BepInEx folder if game path is known
-            // IMPORTANT: Write the simple "MASTER_ACCESS_GRANTED" format for the mod to detect
-            // The mod doesn't have access to the secure token verification logic
+            // Write master token to BepInEx locations ONLY for master users.
+            // Non-master users get any existing token files deleted so the core mod
+            // correctly identifies them as non-master.
             try
             {
                 string gamePath = _holdfastManager.FindHoldfastInstallation();
                 if (!string.IsNullOrEmpty(gamePath) && Directory.Exists(gamePath))
                 {
-                    // For the mod, we write the simple format it can understand
-                    const string MOD_TOKEN = "MASTER_ACCESS_GRANTED";
-                    
-                    string bepInExPlugins = Path.Combine(gamePath, "BepInEx", "plugins");
-                    if (Directory.Exists(bepInExPlugins))
+                    string[] tokenLocations = new[]
                     {
-                        File.WriteAllText(Path.Combine(bepInExPlugins, LOGIN_TOKEN_FILE), MOD_TOKEN);
+                        Path.Combine(gamePath, "BepInEx", "plugins", LOGIN_TOKEN_FILE),
+                        Path.Combine(gamePath, "BepInEx", "plugins", "Mods", LOGIN_TOKEN_FILE),
+                        Path.Combine(gamePath, "BepInEx", LOGIN_TOKEN_FILE)
+                    };
+                    
+                    if (_isMasterLoggedIn)
+                    {
+                        const string MOD_TOKEN = "MASTER_ACCESS_GRANTED";
+                        foreach (string path in tokenLocations)
+                        {
+                            string dir = Path.GetDirectoryName(path);
+                            if (Directory.Exists(dir))
+                                File.WriteAllText(path, MOD_TOKEN);
+                        }
                     }
-                    
-                    // Also write to Mods subfolder if it exists
-                    string modsFolder = Path.Combine(bepInExPlugins, "Mods");
-                    if (Directory.Exists(modsFolder))
+                    else
                     {
-                        File.WriteAllText(Path.Combine(modsFolder, LOGIN_TOKEN_FILE), MOD_TOKEN);
-                    }
-                    
-                    // Write to BepInEx root as well
-                    string bepInExRoot = Path.Combine(gamePath, "BepInEx");
-                    if (Directory.Exists(bepInExRoot))
-                    {
-                        File.WriteAllText(Path.Combine(bepInExRoot, LOGIN_TOKEN_FILE), MOD_TOKEN);
+                        foreach (string path in tokenLocations)
+                        {
+                            if (File.Exists(path))
+                                File.Delete(path);
+                        }
                     }
                 }
             }

@@ -1,6 +1,6 @@
 {
-  "version": "1.0.198",
-  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.198/HoldfastModdingLauncher-v1.0.198.zip",
-  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.198",
-  "releaseNotes": "Updated ModVersions.json for LauncherCoreMod v1.0.12 (data-level server browser filter)."
+  "version": "1.0.199",
+  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.199/HoldfastModdingLauncher-v1.0.199.zip",
+  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.199",
+  "releaseNotes": "Fix master token: only write MASTER_ACCESS_GRANTED for master accounts, delete token for member accounts."
 }
