@@ -12,11 +12,20 @@ namespace HoldfastModdingLauncher
         {
             BackColor = Theme.Panel;
             DoubleBuffered = true;
+            ResizeRedraw = true;
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
+                     ControlStyles.ResizeRedraw, true);
+        }
+
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            Invalidate();
         }
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            base.OnPaint(e);
+            e.Graphics.Clear(BackColor);
             Theme.PaintBorder(this, e);
         }
     }

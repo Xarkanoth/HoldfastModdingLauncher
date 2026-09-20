@@ -324,7 +324,7 @@ namespace HoldfastModdingLauncher
         {
             using (var dialog = new ConfirmDialog(message, title, ConfirmDialogType.YesNo, icon))
             {
-                dialog.ShowDialog();
+                DialogOwner.ShowCentered(dialog);
                 return dialog.Confirmed;
             }
         }
@@ -333,7 +333,7 @@ namespace HoldfastModdingLauncher
         {
             using (var dialog = new ConfirmDialog(message, title, ConfirmDialogType.OkCancel, icon))
             {
-                dialog.ShowDialog();
+                DialogOwner.ShowCentered(dialog);
                 return dialog.Confirmed;
             }
         }
@@ -342,7 +342,7 @@ namespace HoldfastModdingLauncher
         {
             using (var dialog = new ConfirmDialog(message, title, ConfirmDialogType.Ok, ConfirmDialogIcon.Info))
             {
-                dialog.ShowDialog();
+                DialogOwner.ShowCentered(dialog);
             }
         }
 
@@ -350,7 +350,7 @@ namespace HoldfastModdingLauncher
         {
             using (var dialog = new ConfirmDialog(message, title, ConfirmDialogType.Ok, ConfirmDialogIcon.Success))
             {
-                dialog.ShowDialog();
+                DialogOwner.ShowCentered(dialog);
             }
         }
 
@@ -358,7 +358,7 @@ namespace HoldfastModdingLauncher
         {
             using (var dialog = new ConfirmDialog(message, title, ConfirmDialogType.Ok, ConfirmDialogIcon.Warning))
             {
-                dialog.ShowDialog();
+                DialogOwner.ShowCentered(dialog);
             }
         }
 
@@ -366,7 +366,7 @@ namespace HoldfastModdingLauncher
         {
             using (var dialog = new ConfirmDialog(message, title, ConfirmDialogType.Ok, ConfirmDialogIcon.Error))
             {
-                dialog.ShowDialog();
+                DialogOwner.ShowCentered(dialog);
             }
         }
     }

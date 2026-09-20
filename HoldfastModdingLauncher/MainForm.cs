@@ -33,8 +33,11 @@ namespace HoldfastModdingLauncher
         private ProgressBar _progressBar;
         private CheckBox _debugModeCheckBox;
         private Panel _modsPanel;
+        private ThemeScrollPanel _modsScroll;
         private Label _modsLabel;
-        private readonly List<CheckBox> _modCheckBoxes = new();
+        private readonly List<ThemeToggle> _modToggles = new();
+        private Panel _sidebarPanel;
+        private ThemePanel _accountCard;
         
         // Selected mod details
         private Panel _detailsPanel;
@@ -111,12 +114,15 @@ namespace HoldfastModdingLauncher
             
             // Form properties - Dark theme, bigger size
             this.Text = "Holdfast Modding";
-            this.Size = new Size(880, 820);
-            this.FormBorderStyle = FormBorderStyle.FixedSingle;
-            this.MaximizeBox = false;
+            this.Size = new Size(1040, 720);
+            this.MinimumSize = new Size(900, 600);
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.MaximizeBox = true;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = DarkBg;
             this.ForeColor = TextLight;
+            this.DoubleBuffered = true;
+            this.ResizeRedraw = true;
             
             // Load custom icon
             LoadIcon();
@@ -186,25 +192,21 @@ namespace HoldfastModdingLauncher
 
         private void InitializeUI()
         {
-            int formWidth = this.ClientSize.Width;
-            int formHeight = this.ClientSize.Height;
             const int pad = 16;
-            int contentWidth = formWidth - (pad * 2);
 
             var titlePanel = new Panel
             {
                 BackColor = Theme.HeaderBg,
-                Location = new Point(0, 0),
-                Size = new Size(formWidth, 56),
+                Dock = DockStyle.Fill,
+                Height = 56,
                 BorderStyle = BorderStyle.None
             };
+            titlePanel.Resize += (s, e) => titlePanel.Invalidate();
             titlePanel.Paint += (s, e) =>
             {
                 using var pen = new Pen(Theme.Border);
                 e.Graphics.DrawLine(pen, 0, titlePanel.Height - 1, titlePanel.Width, titlePanel.Height - 1);
             };
-            this.Controls.Add(titlePanel);
-
             var titleLabel = new Label
             {
                 Text = "Holdfast Modding",
@@ -221,27 +223,105 @@ namespace HoldfastModdingLauncher
                 Text = "Settings",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 Size = new Size(100, 36),
-                Location = new Point(formWidth - 116, 10)
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Location = new Point(titlePanel.Width - 116, 10)
             };
             Theme.ApplyGhostButton(_settingsButton);
             _settingsButton.Click += SettingsButton_Click;
             titlePanel.Controls.Add(_settingsButton);
+            titlePanel.Resize += (s, e) =>
+            {
+                _settingsButton.Location = new Point(titlePanel.Width - 116, 10);
+            };
+
+            _sidebarPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Width = 300,
+                BackColor = Theme.HeaderBg,
+                BorderStyle = BorderStyle.None
+            };
+            _sidebarPanel.Resize += (s, e) => _sidebarPanel.Invalidate();
+            _sidebarPanel.Paint += (s, e) =>
+            {
+                using var pen = new Pen(Theme.Border);
+                e.Graphics.DrawLine(pen, _sidebarPanel.Width - 1, 0, _sidebarPanel.Width - 1, _sidebarPanel.Height);
+            };
+            var sidebarHeader = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Height = 96,
+                BackColor = Theme.HeaderBg
+            };
+
+            _modsLabel = new Label
+            {
+                Text = "Mods",
+                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                ForeColor = Theme.BrandText,
+                AutoSize = true,
+                Location = new Point(12, 10),
+                BackColor = Color.Transparent
+            };
+            sidebarHeader.Controls.Add(_modsLabel);
+
+            _browseModsButton = new Button
+            {
+                Text = "Browse mods",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Size = new Size(132, 36),
+                Location = new Point(12, 48)
+            };
+            Theme.ApplyPrimaryButton(_browseModsButton);
+            _browseModsButton.Click += BrowseModsButton_Click;
+            sidebarHeader.Controls.Add(_browseModsButton);
+
+            var openModsFolderButton = new Button
+            {
+                Text = "Open folder",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Size = new Size(132, 36),
+                Location = new Point(152, 48)
+            };
+            Theme.ApplyGhostButton(openModsFolderButton);
+            openModsFolderButton.Click += (s, e) => OpenModsFolder();
+            sidebarHeader.Controls.Add(openModsFolderButton);
+
+            _modsScroll = new ThemeScrollPanel
+            {
+                Dock = DockStyle.Fill
+            };
+            _modsPanel = _modsScroll.Content;
+            _modsPanel.Resize += (s, e) => StretchModRows();
+
+            var sidebarGrid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty,
+                GrowStyle = TableLayoutPanelGrowStyle.FixedSize
+            };
+            sidebarGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            sidebarGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 96));
+            sidebarGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            sidebarGrid.Controls.Add(sidebarHeader, 0, 0);
+            sidebarGrid.Controls.Add(_modsScroll, 0, 1);
+            _sidebarPanel.Controls.Add(sidebarGrid);
 
             var contentPanel = new Panel
             {
                 BackColor = DarkBg,
-                Location = new Point(0, 56),
-                Size = new Size(formWidth, formHeight - 56),
+                Dock = DockStyle.Fill,
                 BorderStyle = BorderStyle.None
             };
-            this.Controls.Add(contentPanel);
+            contentPanel.Resize += (s, e) => contentPanel.Invalidate();
 
             var statusCard = new ThemePanel
             {
-                Location = new Point(pad, 12),
-                Size = new Size(contentWidth, 70)
+                Dock = DockStyle.Fill
             };
-            contentPanel.Controls.Add(statusCard);
 
             var statusSectionLabel = new Label
             {
@@ -259,8 +339,9 @@ namespace HoldfastModdingLauncher
                 Text = "Checking installation...",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextGray,
-                AutoSize = true,
+                AutoSize = false,
                 Location = new Point(12, 28),
+                Size = new Size(400, 20),
                 BackColor = Color.Transparent
             };
             statusCard.Controls.Add(_statusLabel);
@@ -268,68 +349,30 @@ namespace HoldfastModdingLauncher
             _progressBar = new ProgressBar
             {
                 Location = new Point(12, 50),
-                Size = new Size(contentWidth - 24, 8),
+                Size = new Size(400, 8),
+                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top,
                 Style = ProgressBarStyle.Marquee,
                 MarqueeAnimationSpeed = 30
             };
             statusCard.Controls.Add(_progressBar);
-
-            var modsCard = new ThemePanel
+            statusCard.Resize += (s, e) =>
             {
-                Location = new Point(pad, 94),
-                Size = new Size(contentWidth, 210)
+                int inner = Math.Max(40, statusCard.ClientSize.Width - 24);
+                _progressBar.Width = inner;
+                _statusLabel.Width = inner;
             };
-            contentPanel.Controls.Add(modsCard);
 
-            _modsLabel = new Label
+            var footerPanel = new Panel
             {
-                Text = "Installed mods",
-                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                ForeColor = Theme.BrandText,
-                AutoSize = true,
-                Location = new Point(12, 10),
-                BackColor = Color.Transparent
+                Dock = DockStyle.Fill,
+                BackColor = DarkBg
             };
-            modsCard.Controls.Add(_modsLabel);
-
-            _browseModsButton = new Button
-            {
-                Text = "Browse mods",
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                Size = new Size(120, 36),
-                Location = new Point(contentWidth - 256, 6)
-            };
-            Theme.ApplyPrimaryButton(_browseModsButton);
-            _browseModsButton.Click += BrowseModsButton_Click;
-            modsCard.Controls.Add(_browseModsButton);
-
-            var openModsFolderButton = new Button
-            {
-                Text = "Open folder",
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                Size = new Size(120, 36),
-                Location = new Point(contentWidth - 128, 6)
-            };
-            Theme.ApplyGhostButton(openModsFolderButton);
-            openModsFolderButton.Click += (s, e) => OpenModsFolder();
-            modsCard.Controls.Add(openModsFolderButton);
-
-            _modsPanel = new Panel
-            {
-                Location = new Point(8, 48),
-                Size = new Size(contentWidth - 16, 154),
-                AutoScroll = true,
-                BackColor = Theme.PanelAlt,
-                BorderStyle = BorderStyle.None
-            };
-            modsCard.Controls.Add(_modsPanel);
 
             var detailsCard = new ThemePanel
             {
-                Location = new Point(pad, 316),
-                Size = new Size(contentWidth, 168)
+                Dock = DockStyle.Fill,
+                AutoScroll = true
             };
-            contentPanel.Controls.Add(detailsCard);
 
             var detailsSectionLabel = new Label
             {
@@ -349,8 +392,9 @@ namespace HoldfastModdingLauncher
                 Text = "Select a mod to view details",
                 Font = new Font("Segoe UI", 11F, FontStyle.Bold),
                 ForeColor = TextGray,
+                AutoSize = false,
                 Location = new Point(12, 32),
-                Size = new Size(contentWidth - 24, 24),
+                Size = new Size(400, 28),
                 BackColor = Color.Transparent
             };
             _detailsPanel.Controls.Add(_detailsTitleLabel);
@@ -360,8 +404,9 @@ namespace HoldfastModdingLauncher
                 Text = "",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextLight,
-                Location = new Point(12, 56),
-                Size = new Size(contentWidth - 24, 60),
+                AutoSize = false,
+                Location = new Point(12, 64),
+                Size = new Size(400, 80),
                 BackColor = Color.Transparent
             };
             _detailsPanel.Controls.Add(_detailsDescLabel);
@@ -371,8 +416,9 @@ namespace HoldfastModdingLauncher
                 Text = "",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = Theme.Warning,
-                Location = new Point(12, 118),
-                Size = new Size(contentWidth - 140, 40),
+                AutoSize = false,
+                Location = new Point(12, 152),
+                Size = new Size(400, 40),
                 BackColor = Color.Transparent
             };
             _detailsPanel.Controls.Add(_detailsReqLabel);
@@ -382,20 +428,69 @@ namespace HoldfastModdingLauncher
                 Text = "Settings",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 Size = new Size(110, 36),
-                Location = new Point(contentWidth - 122, 122),
                 Visible = false
             };
             Theme.ApplyGhostButton(_modSettingsButton);
             _modSettingsButton.Click += ModSettingsButton_Click;
             _detailsPanel.Controls.Add(_modSettingsButton);
             _modSettingsButton.BringToFront();
+            detailsCard.Resize += (s, e) => LayoutDetailsPanel();
 
-            var accountCard = new ThemePanel
+            _accountCard = new ThemePanel
             {
-                Location = new Point(pad, 496),
-                Size = new Size(contentWidth, 88)
+                Dock = DockStyle.Fill
             };
-            contentPanel.Controls.Add(accountCard);
+
+            var contentGrid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 4,
+                Margin = Padding.Empty,
+                Padding = new Padding(pad),
+                GrowStyle = TableLayoutPanelGrowStyle.FixedSize
+            };
+            contentGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            contentGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 70));
+            contentGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            contentGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 108));
+            contentGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 104));
+            contentGrid.Controls.Add(statusCard, 0, 0);
+            contentGrid.Controls.Add(detailsCard, 0, 1);
+            contentGrid.Controls.Add(_accountCard, 0, 2);
+            contentGrid.Controls.Add(footerPanel, 0, 3);
+            contentPanel.Controls.Add(contentGrid);
+
+            var bodyGrid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty,
+                GrowStyle = TableLayoutPanelGrowStyle.FixedSize
+            };
+            bodyGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 300));
+            bodyGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            bodyGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            bodyGrid.Controls.Add(_sidebarPanel, 0, 0);
+            bodyGrid.Controls.Add(contentPanel, 1, 0);
+
+            var rootGrid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty,
+                GrowStyle = TableLayoutPanelGrowStyle.FixedSize
+            };
+            rootGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            rootGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
+            rootGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            rootGrid.Controls.Add(titlePanel, 0, 0);
+            rootGrid.Controls.Add(bodyGrid, 0, 1);
+            this.Controls.Add(rootGrid);
 
             var loginSectionLabel = new Label
             {
@@ -406,11 +501,10 @@ namespace HoldfastModdingLauncher
                 Location = new Point(12, 8),
                 BackColor = Color.Transparent
             };
-            accountCard.Controls.Add(loginSectionLabel);
+            _accountCard.Controls.Add(loginSectionLabel);
 
             _loginUsernameBox = new TextBox
             {
-                Location = new Point(12, 36),
                 Size = new Size(140, 28),
                 Font = new Font("Segoe UI", 9F),
                 Text = ""
@@ -420,57 +514,53 @@ namespace HoldfastModdingLauncher
             _loginUsernameBox.LostFocus += (s, e) => { if (string.IsNullOrEmpty(_loginUsernameBox.Text)) { _loginUsernameBox.ForeColor = TextGray; _loginUsernameBox.Text = "Username"; } };
             _loginUsernameBox.ForeColor = TextGray;
             _loginUsernameBox.Text = "Username";
-            accountCard.Controls.Add(_loginUsernameBox);
+            _accountCard.Controls.Add(_loginUsernameBox);
 
             _loginPasswordBox = new TextBox
             {
-                Location = new Point(160, 36),
                 Size = new Size(140, 28),
                 Font = new Font("Segoe UI", 9F),
                 UseSystemPasswordChar = true
             };
             Theme.ApplyInput(_loginPasswordBox);
-            accountCard.Controls.Add(_loginPasswordBox);
+            _accountCard.Controls.Add(_loginPasswordBox);
             _loginPasswordBox.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) PerformMasterLogin(); };
 
             _loginButton = new Button
             {
                 Text = "Log in",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                Size = new Size(80, 36),
-                Location = new Point(308, 32)
+                Size = new Size(100, 36)
             };
             Theme.ApplyPrimaryButton(_loginButton);
             _loginButton.Click += LoginButton_Click;
-            accountCard.Controls.Add(_loginButton);
+            _accountCard.Controls.Add(_loginButton);
 
             _adminPanelButton = new Button
             {
                 Text = "Admin",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                Size = new Size(80, 36),
-                Location = new Point(396, 32),
+                Size = new Size(88, 36),
                 Visible = false
             };
             Theme.ApplyGhostButton(_adminPanelButton);
             _adminPanelButton.Click += AdminPanelButton_Click;
-            accountCard.Controls.Add(_adminPanelButton);
+            _accountCard.Controls.Add(_adminPanelButton);
 
             _loginStatusLabel = new Label
             {
                 Text = "Not logged in",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextGray,
-                AutoSize = true,
-                Location = new Point(488, 40),
+                AutoSize = false,
+                Size = new Size(200, 24),
                 BackColor = Color.Transparent
             };
-            accountCard.Controls.Add(_loginStatusLabel);
+            _accountCard.Controls.Add(_loginStatusLabel);
 
             _debugModeCheckBox = new CheckBox
             {
                 Text = "Show debug console",
-                Location = new Point(12, 64),
                 AutoSize = true,
                 ForeColor = TextGray,
                 BackColor = Color.Transparent,
@@ -479,54 +569,46 @@ namespace HoldfastModdingLauncher
                 Cursor = Cursors.Hand,
                 Visible = false
             };
-            accountCard.Controls.Add(_debugModeCheckBox);
+            _accountCard.Controls.Add(_debugModeCheckBox);
+            _accountCard.Resize += (s, e) => LayoutAccountBar();
+            LayoutAccountBar();
 
             CheckExistingLogin();
-
-            _playButton = new Button
-            {
-                Text = "Launch Holdfast",
-                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-                Size = new Size(220, 44),
-                Location = new Point(formWidth - pad - 220, 596),
-                Enabled = false
-            };
-            Theme.ApplyPrimaryButton(_playButton);
-            _playButton.Click += PlayButton_Click;
-            contentPanel.Controls.Add(_playButton);
 
             var disclaimerLabel = new Label
             {
                 Text = "Unofficial tool. PC only. Not affiliated with Anvil Game Studios.",
                 Font = new Font("Segoe UI", 8F),
                 ForeColor = Theme.Warning,
-                AutoSize = true,
-                Location = new Point(pad, 600),
+                AutoSize = false,
+                Location = new Point(0, 4),
+                Size = new Size(300, 32),
                 BackColor = Color.Transparent,
                 Cursor = Cursors.Hand
             };
             disclaimerLabel.Click += (s, e) => ShowDisclaimer();
             var disclaimerTooltip = new ToolTip();
             disclaimerTooltip.SetToolTip(disclaimerLabel, "Click for full disclaimer");
-            contentPanel.Controls.Add(disclaimerLabel);
+            footerPanel.Controls.Add(disclaimerLabel);
 
             var creditLabel = new Label
             {
                 Text = "Built by Xarkanoth  ·  Discord.gg/csg",
                 Font = new Font("Segoe UI", 8F),
                 ForeColor = TextGray,
-                AutoSize = true,
-                Location = new Point(pad, 618),
+                AutoSize = false,
+                Location = new Point(0, 36),
+                Size = new Size(300, 18),
                 BackColor = Color.Transparent
             };
-            contentPanel.Controls.Add(creditLabel);
+            footerPanel.Controls.Add(creditLabel);
 
             var donateButton = new Button
             {
                 Text = "Support",
                 Font = new Font("Segoe UI", 8F, FontStyle.Bold),
-                Size = new Size(80, 28),
-                Location = new Point(pad + 210, 614)
+                Size = new Size(88, 32),
+                Location = new Point(0, 58)
             };
             Theme.ApplyGhostButton(donateButton);
             donateButton.Click += (s, e) =>
@@ -543,18 +625,45 @@ namespace HoldfastModdingLauncher
             };
             var donateTooltip = new ToolTip();
             donateTooltip.SetToolTip(donateButton, "Support development");
-            contentPanel.Controls.Add(donateButton);
+            footerPanel.Controls.Add(donateButton);
+
+            _playButton = new Button
+            {
+                Text = "Launch Holdfast",
+                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                Size = new Size(200, 44),
+                Enabled = false
+            };
+            Theme.ApplyPrimaryButton(_playButton);
+            _playButton.Click += PlayButton_Click;
+            footerPanel.Controls.Add(_playButton);
 
             var versionLabel = new Label
             {
                 Text = GetVersionString(),
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextGray,
-                AutoSize = true,
-                Location = new Point(formWidth - 80, 650),
+                AutoSize = false,
+                Size = new Size(80, 20),
+                TextAlign = ContentAlignment.TopRight,
                 BackColor = Color.Transparent
             };
-            contentPanel.Controls.Add(versionLabel);
+            footerPanel.Controls.Add(versionLabel);
+
+            void LayoutFooter()
+            {
+                int rightCol = 212;
+                int leftW = Math.Max(80, footerPanel.ClientSize.Width - rightCol - 8);
+                disclaimerLabel.SetBounds(0, 4, leftW, 32);
+                creditLabel.SetBounds(0, 36, leftW, 18);
+                donateButton.Location = new Point(0, 60);
+                _playButton.Location = new Point(footerPanel.ClientSize.Width - 200, 28);
+                versionLabel.SetBounds(footerPanel.ClientSize.Width - 80, 4, 80, 20);
+            }
+
+            footerPanel.Resize += (s, e) => LayoutFooter();
+            LayoutFooter();
+            LayoutDetailsPanel();
 
             LoadMods();
         }
@@ -972,6 +1081,7 @@ namespace HoldfastModdingLauncher
                 this.Controls.Remove(_loginGatePanel);
                 _loginGatePanel.Dispose();
                 _loginGatePanel = null;
+                this.PerformLayout();
             }
 
             // If core mod is missing, lock the launcher
@@ -1126,6 +1236,84 @@ namespace HoldfastModdingLauncher
             }
         }
         
+        private static int MeasureWrapped(Label label, int width)
+        {
+            if (string.IsNullOrEmpty(label.Text))
+                return 0;
+            return TextRenderer.MeasureText(
+                label.Text,
+                label.Font,
+                new Size(Math.Max(20, width), int.MaxValue),
+                TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl).Height;
+        }
+
+        private void LayoutDetailsPanel()
+        {
+            if (_detailsPanel == null || _detailsTitleLabel == null)
+                return;
+
+            int width = Math.Max(80, _detailsPanel.ClientSize.Width - 24);
+            _detailsTitleLabel.SetBounds(12, 32, width, Math.Max(24, MeasureWrapped(_detailsTitleLabel, width)));
+
+            int y = _detailsTitleLabel.Bottom + 8;
+            int descH = Math.Max(48, MeasureWrapped(_detailsDescLabel, width));
+            if (string.IsNullOrEmpty(_detailsDescLabel.Text))
+                descH = 24;
+            _detailsDescLabel.SetBounds(12, y, width, descH);
+            y = _detailsDescLabel.Bottom + 8;
+
+            int reqWidth = _modSettingsButton.Visible ? Math.Max(80, width - 120) : width;
+            int reqH = MeasureWrapped(_detailsReqLabel, reqWidth);
+            _detailsReqLabel.SetBounds(12, y, reqWidth, Math.Max(reqH, 0));
+            if (_modSettingsButton.Visible)
+                _modSettingsButton.Location = new Point(Math.Max(12, _detailsPanel.ClientSize.Width - 122), y);
+        }
+
+        private void LayoutAccountBar()
+        {
+            if (_accountCard == null || _loginButton == null)
+                return;
+
+            int width = _accountCard.ClientSize.Width;
+            int pad = 12;
+            int btnW = 100;
+            int adminW = 88;
+            int gap = 8;
+            int y = 36;
+            bool loggedIn = !string.IsNullOrEmpty(_loggedInClientName);
+
+            _loginButton.Size = new Size(btnW, 36);
+            _adminPanelButton.Size = new Size(adminW, 36);
+
+            if (loggedIn)
+            {
+                _loginUsernameBox.Visible = false;
+                _loginPasswordBox.Visible = false;
+                _loginButton.Location = new Point(Math.Max(pad, width - pad - btnW), y);
+                if (_adminPanelButton.Visible)
+                    _adminPanelButton.Location = new Point(Math.Max(pad, _loginButton.Left - gap - adminW), y);
+
+                int statusRight = _adminPanelButton.Visible ? _adminPanelButton.Left : _loginButton.Left;
+                _loginStatusLabel.Location = new Point(pad, 42);
+                _loginStatusLabel.Size = new Size(Math.Max(80, statusRight - pad - gap), 24);
+                if (_debugModeCheckBox.Visible)
+                    _debugModeCheckBox.Location = new Point(pad, 70);
+                return;
+            }
+
+            _loginUsernameBox.Visible = true;
+            _loginPasswordBox.Visible = true;
+            int fieldsBudget = width - pad - btnW - gap - pad;
+            int fieldW = Math.Max(96, (fieldsBudget - gap) / 2);
+            _loginUsernameBox.Location = new Point(pad, y + 4);
+            _loginUsernameBox.Size = new Size(fieldW, 28);
+            _loginPasswordBox.Location = new Point(pad + fieldW + gap, y + 4);
+            _loginPasswordBox.Size = new Size(fieldW, 28);
+            _loginButton.Location = new Point(pad + fieldW * 2 + gap * 2, y);
+            _loginStatusLabel.Location = new Point(pad, 76);
+            _loginStatusLabel.Size = new Size(Math.Max(80, width - pad * 2), 20);
+        }
+
         private void UpdateLoginStatus(bool loggedIn)
         {
             if (loggedIn)
@@ -1135,7 +1323,7 @@ namespace HoldfastModdingLauncher
                 string role = isApiMaster ? "Master" : "Member";
                 _loginStatusLabel.Text = $"{displayName} ({role})";
                 _loginStatusLabel.ForeColor = SuccessGreen;
-                _loginButton.Text = "Logout";
+                _loginButton.Text = "Log out";
                 _loginPasswordBox.Enabled = false;
                 _loginUsernameBox.Enabled = false;
                 _adminPanelButton.Visible = isApiMaster;
@@ -1151,7 +1339,7 @@ namespace HoldfastModdingLauncher
                 _loggedInClientName = null;
                 _loginStatusLabel.Text = "Not logged in";
                 _loginStatusLabel.ForeColor = TextGray;
-                _loginButton.Text = "Login";
+                _loginButton.Text = "Log in";
                 _loginPasswordBox.Enabled = true;
                 _loginUsernameBox.Enabled = true;
                 _adminPanelButton.Visible = false;
@@ -1162,6 +1350,8 @@ namespace HoldfastModdingLauncher
                     _debugModeCheckBox.Checked = false;
                 }
             }
+
+            LayoutAccountBar();
         }
         
         private void PerformLogout()
@@ -1266,6 +1456,7 @@ namespace HoldfastModdingLauncher
                 _detailsTitleLabel.ForeColor = TextGray;
                 _detailsDescLabel.Text = "";
                 _detailsReqLabel.Text = "";
+                LayoutDetailsPanel();
             }
         }
         
@@ -1311,6 +1502,7 @@ namespace HoldfastModdingLauncher
         {
             // Disable all modding controls
             if (_playButton != null) _playButton.Enabled = false;
+            if (_modsScroll != null) _modsScroll.Enabled = false;
             if (_modsPanel != null) _modsPanel.Enabled = false;
             
             // Create lockout overlay
@@ -1375,6 +1567,7 @@ namespace HoldfastModdingLauncher
                     this.Controls.Remove(lockoutPanel);
                     lockoutPanel.Dispose();
                     if (_playButton != null) _playButton.Enabled = true;
+                    if (_modsScroll != null) _modsScroll.Enabled = true;
                     if (_modsPanel != null) _modsPanel.Enabled = true;
                 }
             };
@@ -1440,13 +1633,12 @@ namespace HoldfastModdingLauncher
                 if (ctrl is Panel modRow)
                 {
                     string rowFileName = modRow.Tag as string;
-                    if (rowFileName == modFileName && modFileName != null)
+                    bool selected = rowFileName == modFileName && modFileName != null;
+                    modRow.BackColor = selected ? Color.FromArgb(54, 46, 32) : Theme.PageBg;
+                    foreach (Control child in modRow.Controls)
                     {
-                        modRow.BackColor = Color.FromArgb(50, 60, 70); // Highlighted
-                    }
-                    else
-                    {
-                        modRow.BackColor = Color.Transparent; // Normal
+                        if (child is ThemeToggle toggle)
+                            toggle.BackColor = modRow.BackColor;
                     }
                 }
             }
@@ -1458,6 +1650,7 @@ namespace HoldfastModdingLauncher
                 _detailsDescLabel.Text = "";
                 _detailsReqLabel.Text = "";
                 _modSettingsButton.Visible = false;
+                LayoutDetailsPanel();
                 return;
             }
 
@@ -1471,6 +1664,7 @@ namespace HoldfastModdingLauncher
                 _detailsTitleLabel.ForeColor = AccentCyan;
                 _detailsDescLabel.Text = "No details available.";
                 _detailsReqLabel.Text = "";
+                LayoutDetailsPanel();
                 return;
             }
 
@@ -1548,6 +1742,7 @@ namespace HoldfastModdingLauncher
                                modFileName.Equals("CustomCrosshairs.dll", StringComparison.OrdinalIgnoreCase) ||
                                modNameNoExt.Equals("CustomCrosshairs", StringComparison.OrdinalIgnoreCase);
             _modSettingsButton.Visible = hasSettings;
+            LayoutDetailsPanel();
             
             Logger.LogInfo($"Mod selected: {modFileName}, hasSettings: {hasSettings}");
         }
@@ -1584,7 +1779,7 @@ namespace HoldfastModdingLauncher
             {
                 // Clear existing checkboxes
                 _modsPanel.Controls.Clear();
-                _modCheckBoxes.Clear();
+                _modToggles.Clear();
                 _modManifests.Clear();
 
                 var mods = _modManager.DiscoverMods();
@@ -1593,7 +1788,7 @@ namespace HoldfastModdingLauncher
                 {
                     var noModsLabel = new Label
                     {
-                        Text = "No mods found. Place .dll files in the 'Mods' folder.",
+                        Text = "No mods found. Put .dll files in the Mods folder.",
                         Font = new Font("Segoe UI", 9F),
                         ForeColor = TextGray,
                         Location = new Point(15, 15),
@@ -1604,29 +1799,32 @@ namespace HoldfastModdingLauncher
                     return;
                 }
 
-                // Display mods
-                int yPos = 10;
+                int rowWidth = Math.Max(240, _modsPanel.ClientSize.Width);
+                int yPos = 0;
                 foreach (var mod in mods)
                 {
-                    // Create a panel for each mod row
                     var modRow = new Panel
                     {
-                        Location = new Point(5, yPos),
-                        Size = new Size(_modsPanel.Width - 30, 32),
-                        BackColor = Color.Transparent,
+                        Location = new Point(0, yPos),
+                        Size = new Size(rowWidth, 56),
+                        BackColor = Theme.PageBg,
                         Tag = mod.FileName,
                         Cursor = Cursors.Hand
                     };
+                    modRow.Resize += (s, e) => modRow.Invalidate();
+                    modRow.Paint += (s, pe) =>
+                    {
+                        using var pen = new Pen(Theme.Border);
+                        pe.Graphics.DrawLine(pen, 12, modRow.Height - 1, modRow.Width - 12, modRow.Height - 1);
+                    };
                     modRow.Click += (s, e) => UpdateModDetails(mod.FileName);
-                    
-                    // Add right-click context menu for uninstall
+
                     var contextMenu = new ContextMenuStrip
                     {
                         BackColor = DarkPanel,
                         ForeColor = TextLight
                     };
-                    
-                    // Core mods cannot be uninstalled
+
                     if (!_modManager.IsCoreMod(mod.FileName))
                     {
                         var uninstallItem = new ToolStripMenuItem("Uninstall mod");
@@ -1635,129 +1833,92 @@ namespace HoldfastModdingLauncher
                     }
                     else
                     {
-                        var uninstallItem = new ToolStripMenuItem("Core mod (cannot uninstall)")
-                        {
-                            Enabled = false
-                        };
-                        contextMenu.Items.Add(uninstallItem);
+                        contextMenu.Items.Add(new ToolStripMenuItem("Core mod (cannot uninstall)") { Enabled = false });
                     }
-                    
+
                     var openFolderItem = new ToolStripMenuItem("Open mods folder");
                     openFolderItem.Click += (s, e) => System.Diagnostics.Process.Start("explorer.exe", _modManager.GetModsFolderPath());
                     contextMenu.Items.Add(openFolderItem);
                     modRow.ContextMenuStrip = contextMenu;
-                    
                     _modsPanel.Controls.Add(modRow);
 
-                    // Use display name if available, otherwise fallback to filename without extension
-                    string displayName = !string.IsNullOrEmpty(mod.DisplayName) 
-                        ? mod.DisplayName 
+                    string displayName = !string.IsNullOrEmpty(mod.DisplayName)
+                        ? mod.DisplayName
                         : Path.GetFileNameWithoutExtension(mod.FileName);
-                    
-                    // Checkbox only (no text) - for enabling/disabling the mod
-                    var checkBox = new CheckBox
+
+                    var toggle = new ThemeToggle
                     {
-                        Text = "",
-                        Location = new Point(8, 6),
-                        Checked = mod.Enabled,
-                        Size = new Size(18, 18),
+                        Location = new Point(rowWidth - 56, 16),
                         Tag = mod.FileName,
-                        BackColor = Color.Transparent,
-                        Cursor = Cursors.Hand
+                        BackColor = Theme.PageBg
                     };
-                    
-                    // Core mods cannot be disabled
+                    toggle.Checked = _modManager.IsCoreMod(mod.FileName) || mod.Enabled;
                     if (_modManager.IsCoreMod(mod.FileName))
-                    {
-                        checkBox.Enabled = false;
-                        checkBox.Checked = true; // Always checked for core mods
-                    }
+                        toggle.Enabled = false;
                     else
-                    {
-                        checkBox.CheckedChanged += ModCheckBox_CheckedChanged;
-                    }
-                    
-                    checkBox.ContextMenuStrip = contextMenu;
-                    modRow.Controls.Add(checkBox);
-                    _modCheckBoxes.Add(checkBox);
-                    
-                    // Separate label for mod name - clicking this only selects the mod (shows details)
+                        toggle.CheckedChanged += ModToggle_CheckedChanged;
+                    toggle.ContextMenuStrip = contextMenu;
+                    modRow.Controls.Add(toggle);
+                    _modToggles.Add(toggle);
+
                     var modNameLabel = new Label
                     {
                         Text = displayName,
-                        Location = new Point(30, 6),
-                        AutoSize = true,
+                        Location = new Point(12, 8),
+                        Size = new Size(rowWidth - 76, 20),
                         Tag = mod.FileName,
                         ForeColor = TextLight,
                         BackColor = Color.Transparent,
-                        Font = new Font("Segoe UI", 10F),
+                        Font = new Font("Segoe UI", 10F, FontStyle.Bold),
                         Cursor = Cursors.Hand
                     };
                     modNameLabel.Click += (s, e) => UpdateModDetails(mod.FileName);
                     modNameLabel.ContextMenuStrip = contextMenu;
                     modRow.Controls.Add(modNameLabel);
 
-                    // Add version info
                     var versionLabel = new Label
                     {
                         Text = $"v{mod.Version}",
-                        Font = new Font("Segoe UI", 9F),
-                        ForeColor = AccentCyan,
-                        Location = new Point(280, 8),
+                        Font = new Font("Segoe UI", 8F),
+                        ForeColor = Theme.BrandText,
+                        Location = new Point(12, 30),
                         AutoSize = true,
-                        BackColor = Color.Transparent
+                        BackColor = Color.Transparent,
+                        Cursor = Cursors.Hand
                     };
                     versionLabel.Click += (s, e) => UpdateModDetails(mod.FileName);
                     modRow.Controls.Add(versionLabel);
 
-                    // Add file size info
-                    var sizeLabel = new Label
-                    {
-                        Text = $"({FormatFileSize(mod.FileSize)})",
-                        Font = new Font("Segoe UI", 9F),
-                        ForeColor = TextGray,
-                        Location = new Point(350, 8),
-                        AutoSize = true,
-                        BackColor = Color.Transparent
-                    };
-                    sizeLabel.Click += (s, e) => UpdateModDetails(mod.FileName);
-                    modRow.Controls.Add(sizeLabel);
-
-                    // Update indicator label
                     var updateLabel = new Label
                     {
                         Text = "",
                         Font = new Font("Segoe UI", 8F),
-                        ForeColor = Color.Orange,
-                        Location = new Point(420, 8),
+                        ForeColor = Theme.Warning,
+                        Location = new Point(70, 30),
                         AutoSize = true,
                         Name = $"updateLabel_{mod.FileName}",
                         BackColor = Color.Transparent
                     };
                     modRow.Controls.Add(updateLabel);
 
-                    // Update button (hidden by default)
                     var updateButton = new Button
                     {
-                        Text = "⬆ Update",
-                        Font = new Font("Segoe UI", 8F, FontStyle.Bold),
-                        Size = new Size(70, 24),
-                        Location = new Point(520, 4),
-                        BackColor = Color.FromArgb(40, 40, 50),
-                        ForeColor = Color.Orange,
-                        FlatStyle = FlatStyle.Flat,
-                        Cursor = Cursors.Hand,
+                        Text = "Update",
+                        Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                        Size = new Size(Math.Max(88, rowWidth - 24), 44),
+                        Location = new Point(12, 56),
                         Visible = false,
                         Name = $"updateBtn_{mod.FileName}",
                         Tag = mod.FileName
                     };
-                    updateButton.FlatAppearance.BorderColor = Color.Orange;
-                    updateButton.FlatAppearance.BorderSize = 1;
+                    Theme.ApplyGhostButton(updateButton);
                     updateButton.Click += async (s, e) => await UpdateModAsync(mod.FileName);
                     modRow.Controls.Add(updateButton);
 
-                    yPos += 36;
+                    yPos += 56;
                 }
+
+                StretchModRows();
 
                 // No mod selected by default - user clicks to select
                 _selectedModFileName = null;
@@ -1821,15 +1982,13 @@ namespace HoldfastModdingLauncher
                                         }
                                         else
                                         {
-                                            updateLabel.Text = "✓ Latest";
+                                            updateLabel.Text = "Latest";
                                             updateLabel.ForeColor = SuccessGreen;
                                         }
                                     }
 
                                     if (updateButton != null)
-                                    {
                                         updateButton.Visible = hasUpdate;
-                                    }
                                 }
                             }
                         }
@@ -1852,6 +2011,7 @@ namespace HoldfastModdingLauncher
                             }
                         }
                     }
+                    LayoutModRows();
                 });
             }
             catch (Exception ex)
@@ -1972,26 +2132,66 @@ namespace HoldfastModdingLauncher
             return $"{len:0.##} {sizes[order]}";
         }
 
-        private void ModCheckBox_CheckedChanged(object sender, EventArgs e)
+        private void StretchModRows()
         {
-            if (sender is CheckBox checkBox && checkBox.Tag is string fileName)
+            LayoutModRows();
+        }
+
+        private void LayoutModRows()
+        {
+            if (_modsPanel == null) return;
+            int width = Math.Max(240, _modsPanel.ClientSize.Width);
+            int y = 0;
+            foreach (Control ctrl in _modsPanel.Controls)
             {
-                // Double-check: prevent disabling core mods even if checkbox is somehow unchecked
-                if (_modManager.IsCoreMod(fileName) && !checkBox.Checked)
+                if (ctrl is not Panel row || row.Tag is not string)
+                    continue;
+
+                var updateButton = row.Controls.OfType<Button>()
+                    .FirstOrDefault(b => b.Name != null && b.Name.StartsWith("updateBtn_"));
+                bool hasUpdate = updateButton != null && updateButton.Visible;
+                int height = hasUpdate ? 108 : 56;
+                row.SetBounds(0, y, width, height);
+
+                var toggle = row.Controls.OfType<ThemeToggle>().FirstOrDefault();
+                if (toggle != null)
+                    toggle.Location = new Point(width - 56, 16);
+
+                foreach (Control child in row.Controls)
                 {
-                    checkBox.Checked = true;
-                    return;
+                    if (child is Label name && name.Font.Bold && name.Tag is string)
+                        name.Size = new Size(Math.Max(80, width - 76), 20);
                 }
-                
-                _modManager.SetModEnabled(fileName, checkBox.Checked);
-                UpdateModCountStatus();
+
+                if (updateButton != null)
+                {
+                    updateButton.SetBounds(12, 56, Math.Max(88, width - 24), 44);
+                }
+
+                y += height;
             }
+            _modsScroll?.Recalc();
+        }
+
+        private void ModToggle_CheckedChanged(object sender, EventArgs e)
+        {
+            if (sender is not ThemeToggle toggle || toggle.Tag is not string fileName)
+                return;
+
+            if (_modManager.IsCoreMod(fileName) && !toggle.Checked)
+            {
+                toggle.Checked = true;
+                return;
+            }
+
+            _modManager.SetModEnabled(fileName, toggle.Checked);
+            UpdateModCountStatus();
         }
         
         private void UpdateModCountStatus()
         {
-            int enabledCount = _modCheckBoxes.Count(cb => cb.Checked);
-            _statusLabel.Text = $"✓ Ready! {enabledCount} mod(s) enabled.";
+            int enabledCount = _modToggles.Count(t => t.Checked);
+            _statusLabel.Text = $"Ready. {enabledCount} mod(s) enabled.";
             _statusLabel.ForeColor = SuccessGreen;
         }
 
@@ -2219,6 +2419,7 @@ namespace HoldfastModdingLauncher
         private void ShowCoreModLockout()
         {
             if (_playButton != null) _playButton.Enabled = false;
+            if (_modsScroll != null) _modsScroll.Enabled = false;
             if (_modsPanel != null) _modsPanel.Enabled = false;
 
             _coreModLockPanel = new Panel
@@ -2275,6 +2476,7 @@ namespace HoldfastModdingLauncher
                     _coreModLockPanel.Dispose();
                     _coreModLockPanel = null;
                     if (_playButton != null) _playButton.Enabled = true;
+                    if (_modsScroll != null) _modsScroll.Enabled = true;
                     if (_modsPanel != null) _modsPanel.Enabled = true;
                     LoadMods();
                 }
@@ -2380,7 +2582,7 @@ namespace HoldfastModdingLauncher
                 pe.Graphics.DrawRectangle(pen, 0, 0, msgForm.Width - 1, msgForm.Height - 1);
             };
 
-            msgForm.ShowDialog(this);
+            DialogOwner.ShowCentered(msgForm);
         }
     }
 }

@@ -519,7 +519,7 @@ namespace HoldfastModdingLauncher
         {
             using (var form = new SplashScreenSettingsForm(holdfastPath, apiClient))
             {
-                form.ShowDialog();
+                DialogOwner.ShowCentered(form);
             }
         }
     }

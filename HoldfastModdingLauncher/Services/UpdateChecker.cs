@@ -368,6 +368,9 @@ namespace HoldfastModdingLauncher.Services
         /// </summary>
         private string CreateUpdateScript(string sourcePath, string targetPath, string version)
         {
+            sourcePath = sourcePath.TrimEnd('\\', '/');
+            targetPath = targetPath.TrimEnd('\\', '/');
+
             string scriptPath = Path.Combine(Path.GetTempPath(), "update_launcher.bat");
             string logPath = Path.Combine(Path.GetTempPath(), "launcher_update.log");
             string exeName = "HoldfastModdingLauncher.exe";

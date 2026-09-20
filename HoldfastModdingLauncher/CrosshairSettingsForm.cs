@@ -487,7 +487,7 @@ namespace HoldfastModdingLauncher
         {
             using (var form = new CrosshairSettingsForm(holdfastPath, preferencesManager))
             {
-                form.ShowDialog();
+                DialogOwner.ShowCentered(form);
             }
         }
     }

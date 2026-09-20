@@ -1,6 +1,6 @@
 {
-  "version": "2.0.0",
-  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v2.0.0/HoldfastModdingLauncher-v2.0.0.zip",
-  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v2.0.0",
-  "releaseNotes": "New Regiment Control look: gold and umber theme, card layout, no cyan or magenta chrome."
+  "version": "2.0.1",
+  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v2.0.1/HoldfastModdingLauncher-v2.0.1.zip",
+  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v2.0.1",
+  "releaseNotes": "Mods sit in a full-height sidebar with switches. Dialogs center on the launcher. Vertical scrollbar matches the theme."
 }

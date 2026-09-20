@@ -320,7 +320,7 @@ namespace HoldfastModdingLauncher
         {
             using (var form = new DisclaimerForm(true))
             {
-                form.ShowDialog();
+                DialogOwner.ShowCentered(form);
                 return form.Accepted;
             }
         }
@@ -330,7 +330,7 @@ namespace HoldfastModdingLauncher
         {
             using (var form = new DisclaimerForm(false))
             {
-                form.ShowDialog();
+                DialogOwner.ShowCentered(form);
             }
         }
     }

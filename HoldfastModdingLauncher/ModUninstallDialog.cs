@@ -281,7 +281,7 @@ namespace HoldfastModdingLauncher
         {
             using (var dialog = new ModUninstallDialog(modFileName, modFullPath))
             {
-                dialog.ShowDialog();
+                DialogOwner.ShowCentered(dialog);
                 return dialog.Confirmed && dialog.DeleteSuccessful;
             }
         }
