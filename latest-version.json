@@ -1,6 +1,6 @@
 {
-  "version": "1.0.201",
-  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v1.0.201/HoldfastModdingLauncher-v1.0.201.zip",
-  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v1.0.201",
-  "releaseNotes": "Admin panel: delete accounts permanently, toggle mods as default (available to all users)."
+  "version": "2.0.0",
+  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v2.0.0/HoldfastModdingLauncher-v2.0.0.zip",
+  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v2.0.0",
+  "releaseNotes": "New Regiment Control look: gold and umber theme, card layout, no cyan or magenta chrome."
 }

@@ -38,19 +38,18 @@ namespace HoldfastModdingLauncher
         private List<RemoteModInfo> _allMods = new();
         private RemoteModInfo? _selectedMod = null;
         
-        // Dark theme colors
-        private static readonly Color DarkBg = Color.FromArgb(18, 18, 22);
-        private static readonly Color DarkPanel = Color.FromArgb(28, 28, 35);
-        private static readonly Color DarkListItem = Color.FromArgb(35, 35, 42);
-        private static readonly Color DarkListItemHover = Color.FromArgb(45, 45, 55);
-        private static readonly Color DarkListItemSelected = Color.FromArgb(50, 60, 70);
-        private static readonly Color AccentCyan = Color.FromArgb(0, 200, 200);
-        private static readonly Color AccentMagenta = Color.FromArgb(200, 0, 150);
-        private static readonly Color AccentGreen = Color.FromArgb(80, 200, 120);
-        private static readonly Color AccentOrange = Color.FromArgb(255, 165, 0);
-        private static readonly Color TextLight = Color.FromArgb(240, 240, 240);
-        private static readonly Color TextGray = Color.FromArgb(140, 140, 140);
-        private static readonly Color BorderColor = Color.FromArgb(60, 60, 70);
+        private static readonly Color DarkBg = Theme.PageBg;
+        private static readonly Color DarkPanel = Theme.Panel;
+        private static readonly Color DarkListItem = Theme.PanelAlt;
+        private static readonly Color DarkListItemHover = Color.FromArgb(38, 40, 50);
+        private static readonly Color DarkListItemSelected = Color.FromArgb(54, 46, 32);
+        private static readonly Color AccentCyan = Theme.Brand;
+        private static readonly Color AccentMagenta = Theme.Umber;
+        private static readonly Color AccentGreen = Theme.Success;
+        private static readonly Color AccentOrange = Theme.Warning;
+        private static readonly Color TextLight = Theme.Text;
+        private static readonly Color TextGray = Theme.TextMuted;
+        private static readonly Color BorderColor = Theme.Border;
 
         public ModBrowserForm(ModManager modManager, ApiClient apiClient = null)
         {
@@ -96,7 +95,7 @@ namespace HoldfastModdingLauncher
             // Title label
             _titleLabel = new Label
             {
-                Text = "📦  MOD BROWSER",
+                Text = "Mod browser",
                 Font = new Font("Segoe UI", 14F, FontStyle.Bold),
                 ForeColor = AccentCyan,
                 AutoSize = true,
@@ -384,7 +383,7 @@ namespace HoldfastModdingLauncher
             // Uninstall button
             _uninstallButton = new Button
             {
-                Text = "🗑  Uninstall",
+                Text = "Uninstall",
                 Font = new Font("Segoe UI", 10F),
                 Location = new Point(padding + buttonWidth + 15, buttonY),
                 Size = new Size(buttonWidth, buttonHeight),
@@ -675,7 +674,7 @@ namespace HoldfastModdingLauncher
 
             if (!string.IsNullOrEmpty(mod.Requirements))
             {
-                _modRequirementsLabel.Text = $"⚠ {mod.Requirements}";
+                _modRequirementsLabel.Text = mod.Requirements;
                 _modRequirementsLabel.Visible = true;
             }
             else

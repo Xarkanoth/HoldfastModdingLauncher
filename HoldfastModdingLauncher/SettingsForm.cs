@@ -19,14 +19,13 @@ namespace HoldfastModdingLauncher
         private Button _checkUpdatesButton;
         
         
-        // Dark theme colors (matching MainForm)
-        private static readonly Color DarkBg = Color.FromArgb(18, 18, 22);
-        private static readonly Color DarkPanel = Color.FromArgb(28, 28, 35);
-        private static readonly Color AccentCyan = Color.FromArgb(0, 200, 200);
-        private static readonly Color AccentMagenta = Color.FromArgb(200, 0, 150);
-        private static readonly Color TextLight = Color.FromArgb(240, 240, 240);
-        private static readonly Color TextGray = Color.FromArgb(140, 140, 140);
-        private static readonly Color SuccessGreen = Color.FromArgb(80, 200, 120);
+        private static readonly Color DarkBg = Theme.PageBg;
+        private static readonly Color DarkPanel = Theme.Panel;
+        private static readonly Color AccentCyan = Theme.Brand;
+        private static readonly Color AccentMagenta = Theme.Umber;
+        private static readonly Color TextLight = Theme.Text;
+        private static readonly Color TextGray = Theme.TextMuted;
+        private static readonly Color SuccessGreen = Theme.Success;
         
         // For dragging the form
         private bool _isDragging = false;
@@ -81,7 +80,7 @@ namespace HoldfastModdingLauncher
             // Title label
             var titleLabel = new Label
             {
-                Text = "⚙  SETTINGS",
+                Text = "Settings",
                 Font = new Font("Segoe UI", 14F, FontStyle.Bold),
                 ForeColor = TextLight,
                 AutoSize = true,

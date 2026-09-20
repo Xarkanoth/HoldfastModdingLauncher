@@ -24,7 +24,7 @@ namespace HoldfastModdingLauncher
         private readonly ApiClient _apiClient;
         
         // Store remote mod info for updates
-        private Dictionary<string, RemoteModInfo> _remoteModInfo = new Dictionary<string, RemoteModInfo>();
+        private readonly Dictionary<string, RemoteModInfo> _remoteModInfo = new();
         
         private Button _playButton;
         private Button _settingsButton;
@@ -34,7 +34,7 @@ namespace HoldfastModdingLauncher
         private CheckBox _debugModeCheckBox;
         private Panel _modsPanel;
         private Label _modsLabel;
-        private List<CheckBox> _modCheckBoxes = new List<CheckBox>();
+        private readonly List<CheckBox> _modCheckBoxes = new();
         
         // Selected mod details
         private Panel _detailsPanel;
@@ -43,7 +43,7 @@ namespace HoldfastModdingLauncher
         private Label _detailsReqLabel;
         private Button _modSettingsButton;
         private string _selectedModFileName = null;
-        private Dictionary<string, ModManifest> _modManifests = new Dictionary<string, ModManifest>();
+        private readonly Dictionary<string, ModManifest> _modManifests = new();
         
         // Login
         private TextBox _loginUsernameBox;
@@ -54,31 +54,21 @@ namespace HoldfastModdingLauncher
         private bool _isMasterLoggedIn = false;
         private string _loggedInClientName = null;
         
-        // Secure password hashes - SHA256 of password with salt (passwords are never stored)
-        // These hashes cannot be reversed to get the original passwords
-        // Each hash maps to a client name for display
-        private static readonly Dictionary<string, string> MASTER_LOGINS = new Dictionary<string, string>
-        {
-            { "5af29f81b2678084c9ffb40fcfeb0ee8287f4f5a16fb73229aca874503097728", "Xarkanoth" },
-            { "18d767b5b1cef549d8fc7760e7a0853b9d583b82edc2e4e05f62505db95ea0d5", "BMR" }
-        };
         private const string HASH_SALT = "HF_MODDING_2024_XARK";
         private const string LOGIN_TOKEN_FILE = "master_login.token";
         
         // LauncherCoreMod integrity protection
         private const string LAUNCHER_CORE_MOD_NAME = "LauncherCoreMod.dll";
-        private const string LAUNCHER_CORE_MOD_EXPECTED_HASH = "8195ea3d0eeb20c751da4ae82032d8b98e014603502e0101fba3ae3e1d8d9aed";
         private bool _coreModMissing = false;
         private Panel _coreModLockPanel;
 
-        // Dark theme colors (matching InstallerForm)
-        private readonly Color DarkBg = Color.FromArgb(18, 18, 18);
-        private readonly Color DarkPanel = Color.FromArgb(28, 28, 28);
-        private readonly Color AccentCyan = Color.FromArgb(0, 255, 255);
-        private readonly Color AccentMagenta = Color.FromArgb(255, 0, 255);
-        private readonly Color TextLight = Color.FromArgb(240, 240, 240);
-        private readonly Color TextGray = Color.FromArgb(180, 180, 180);
-        private readonly Color SuccessGreen = Color.FromArgb(0, 255, 127);
+        private readonly Color DarkBg = Theme.PageBg;
+        private readonly Color DarkPanel = Theme.Panel;
+        private readonly Color AccentCyan = Theme.Brand;
+        private readonly Color AccentMagenta = Theme.Umber;
+        private readonly Color TextLight = Theme.Text;
+        private readonly Color TextGray = Theme.TextMuted;
+        private readonly Color SuccessGreen = Theme.Success;
 
         public MainForm(bool debugMode = false)
         {
@@ -94,6 +84,9 @@ namespace HoldfastModdingLauncher
             
             InitializeComponent();
             InitializeUI();
+
+            if (debugMode && _debugModeCheckBox != null)
+                _debugModeCheckBox.Checked = true;
             
             // Check LauncherCoreMod - if missing, launcher will be locked after login
             _coreModMissing = !VerifyLauncherCoreMod();
@@ -117,8 +110,8 @@ namespace HoldfastModdingLauncher
             this.SuspendLayout();
             
             // Form properties - Dark theme, bigger size
-            this.Text = "Holdfast Modding Launcher";
-            this.Size = new Size(850, 850);
+            this.Text = "Holdfast Modding";
+            this.Size = new Size(880, 820);
             this.FormBorderStyle = FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
             this.StartPosition = FormStartPosition.CenterScreen;
@@ -195,73 +188,71 @@ namespace HoldfastModdingLauncher
         {
             int formWidth = this.ClientSize.Width;
             int formHeight = this.ClientSize.Height;
-            
-            // Title panel
+            const int pad = 16;
+            int contentWidth = formWidth - (pad * 2);
+
             var titlePanel = new Panel
             {
-                BackColor = DarkPanel,
+                BackColor = Theme.HeaderBg,
                 Location = new Point(0, 0),
-                Size = new Size(formWidth, 80),
+                Size = new Size(formWidth, 56),
                 BorderStyle = BorderStyle.None
+            };
+            titlePanel.Paint += (s, e) =>
+            {
+                using var pen = new Pen(Theme.Border);
+                e.Graphics.DrawLine(pen, 0, titlePanel.Height - 1, titlePanel.Width, titlePanel.Height - 1);
             };
             this.Controls.Add(titlePanel);
 
-            // Title label
             var titleLabel = new Label
             {
-                Text = "HOLDFAST MODDING LAUNCHER",
-                Font = new Font("Segoe UI", 18F, FontStyle.Bold),
-                ForeColor = AccentCyan,
+                Text = "Holdfast Modding",
+                Font = new Font("Segoe UI", 16F, FontStyle.Bold),
+                ForeColor = Theme.BrandText,
                 AutoSize = true,
-                Location = new Point(25, 25),
+                Location = new Point(pad, 14),
                 BackColor = Color.Transparent
             };
             titlePanel.Controls.Add(titleLabel);
 
-            // Settings button (gear icon)
             _settingsButton = new Button
             {
-                Text = "⚙",
-                Font = new Font("Segoe UI", 16F),
-                Size = new Size(45, 45),
-                Location = new Point(formWidth - 70, 18),
-                BackColor = DarkPanel,
-                ForeColor = TextGray,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
+                Text = "Settings",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Size = new Size(100, 36),
+                Location = new Point(formWidth - 116, 10)
             };
-            _settingsButton.FlatAppearance.BorderColor = Color.FromArgb(60, 60, 60);
-            _settingsButton.FlatAppearance.BorderSize = 1;
-            _settingsButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(50, 50, 50);
+            Theme.ApplyGhostButton(_settingsButton);
             _settingsButton.Click += SettingsButton_Click;
-            
-            // Add tooltip for settings button
-            var settingsTooltip = new ToolTip();
-            settingsTooltip.SetToolTip(_settingsButton, "Settings");
-            
             titlePanel.Controls.Add(_settingsButton);
 
-            // Main content panel
             var contentPanel = new Panel
             {
                 BackColor = DarkBg,
-                Location = new Point(0, 80),
-                Size = new Size(formWidth, formHeight - 80),
+                Location = new Point(0, 56),
+                Size = new Size(formWidth, formHeight - 56),
                 BorderStyle = BorderStyle.None
             };
             this.Controls.Add(contentPanel);
 
-            // Status section
+            var statusCard = new ThemePanel
+            {
+                Location = new Point(pad, 12),
+                Size = new Size(contentWidth, 70)
+            };
+            contentPanel.Controls.Add(statusCard);
+
             var statusSectionLabel = new Label
             {
-                Text = "STATUS",
+                Text = "Status",
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                ForeColor = AccentCyan,
+                ForeColor = Theme.BrandText,
                 AutoSize = true,
-                Location = new Point(25, 15),
+                Location = new Point(12, 8),
                 BackColor = Color.Transparent
             };
-            contentPanel.Controls.Add(statusSectionLabel);
+            statusCard.Controls.Add(statusSectionLabel);
 
             _statusLabel = new Label
             {
@@ -269,287 +260,248 @@ namespace HoldfastModdingLauncher
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextGray,
                 AutoSize = true,
-                Location = new Point(25, 38),
+                Location = new Point(12, 28),
                 BackColor = Color.Transparent
             };
-            contentPanel.Controls.Add(_statusLabel);
+            statusCard.Controls.Add(_statusLabel);
 
             _progressBar = new ProgressBar
             {
-                Location = new Point(25, 60),
-                Size = new Size(formWidth - 50, 6),
+                Location = new Point(12, 50),
+                Size = new Size(contentWidth - 24, 8),
                 Style = ProgressBarStyle.Marquee,
                 MarqueeAnimationSpeed = 30
             };
-            contentPanel.Controls.Add(_progressBar);
+            statusCard.Controls.Add(_progressBar);
 
-            // Mods section label
+            var modsCard = new ThemePanel
+            {
+                Location = new Point(pad, 94),
+                Size = new Size(contentWidth, 210)
+            };
+            contentPanel.Controls.Add(modsCard);
+
             _modsLabel = new Label
             {
-                Text = "INSTALLED MODS",
+                Text = "Installed mods",
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                ForeColor = AccentCyan,
+                ForeColor = Theme.BrandText,
                 AutoSize = true,
-                Location = new Point(25, 85),
+                Location = new Point(12, 10),
                 BackColor = Color.Transparent
             };
-            contentPanel.Controls.Add(_modsLabel);
-            
-            // Browse Mods button
+            modsCard.Controls.Add(_modsLabel);
+
             _browseModsButton = new Button
             {
-                Text = "📦 Browse & Download Mods",
+                Text = "Browse mods",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                Size = new Size(200, 28),
-                Location = new Point(formWidth - 225, 80),
-                BackColor = DarkPanel,
-                ForeColor = Color.FromArgb(255, 165, 0), // Orange
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
+                Size = new Size(120, 36),
+                Location = new Point(contentWidth - 256, 6)
             };
-            _browseModsButton.FlatAppearance.BorderColor = Color.FromArgb(255, 165, 0);
-            _browseModsButton.FlatAppearance.BorderSize = 1;
-            _browseModsButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(60, 50, 30);
+            Theme.ApplyPrimaryButton(_browseModsButton);
             _browseModsButton.Click += BrowseModsButton_Click;
-            contentPanel.Controls.Add(_browseModsButton);
+            modsCard.Controls.Add(_browseModsButton);
 
-            // Open Mods Folder button
             var openModsFolderButton = new Button
             {
-                Text = "📁 Open Mods Folder",
-                Font = new Font("Segoe UI", 9F),
-                Size = new Size(140, 28),
-                Location = new Point(formWidth - 435, 80),
-                BackColor = DarkPanel,
-                ForeColor = TextGray,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
+                Text = "Open folder",
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Size = new Size(120, 36),
+                Location = new Point(contentWidth - 128, 6)
             };
-            openModsFolderButton.FlatAppearance.BorderColor = TextGray;
-            openModsFolderButton.FlatAppearance.BorderSize = 1;
-            openModsFolderButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(40, 40, 50);
+            Theme.ApplyGhostButton(openModsFolderButton);
             openModsFolderButton.Click += (s, e) => OpenModsFolder();
-            contentPanel.Controls.Add(openModsFolderButton);
+            modsCard.Controls.Add(openModsFolderButton);
 
-            // Mods panel (scrollable list) - Increased height
             _modsPanel = new Panel
             {
-                Location = new Point(25, 110),
-                Size = new Size(formWidth - 50, 180),
+                Location = new Point(8, 48),
+                Size = new Size(contentWidth - 16, 154),
                 AutoScroll = true,
-                BackColor = DarkPanel,
+                BackColor = Theme.PanelAlt,
                 BorderStyle = BorderStyle.None
             };
-            contentPanel.Controls.Add(_modsPanel);
+            modsCard.Controls.Add(_modsPanel);
 
-            // Selected mod details section - Moved down
+            var detailsCard = new ThemePanel
+            {
+                Location = new Point(pad, 316),
+                Size = new Size(contentWidth, 168)
+            };
+            contentPanel.Controls.Add(detailsCard);
+
             var detailsSectionLabel = new Label
             {
-                Text = "MOD DETAILS",
+                Text = "Mod details",
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                ForeColor = AccentMagenta,
+                ForeColor = Theme.BrandText,
                 AutoSize = true,
-                Location = new Point(25, 305),
+                Location = new Point(12, 8),
                 BackColor = Color.Transparent
             };
-            contentPanel.Controls.Add(detailsSectionLabel);
+            detailsCard.Controls.Add(detailsSectionLabel);
 
-            _detailsPanel = new Panel
-            {
-                BackColor = DarkPanel,
-                Location = new Point(25, 330),
-                Size = new Size(formWidth - 50, 220),
-                BorderStyle = BorderStyle.None
-            };
-            contentPanel.Controls.Add(_detailsPanel);
+            _detailsPanel = detailsCard;
 
-            // Details title
             _detailsTitleLabel = new Label
             {
                 Text = "Select a mod to view details",
                 Font = new Font("Segoe UI", 11F, FontStyle.Bold),
                 ForeColor = TextGray,
-                Location = new Point(15, 12),
-                Size = new Size(formWidth - 80, 28),
+                Location = new Point(12, 32),
+                Size = new Size(contentWidth - 24, 24),
                 BackColor = Color.Transparent
             };
             _detailsPanel.Controls.Add(_detailsTitleLabel);
 
-            // Details description - More space
             _detailsDescLabel = new Label
             {
                 Text = "",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextLight,
-                Location = new Point(15, 45),
-                Size = new Size(formWidth - 80, 100),
+                Location = new Point(12, 56),
+                Size = new Size(contentWidth - 24, 60),
                 BackColor = Color.Transparent
             };
             _detailsPanel.Controls.Add(_detailsDescLabel);
 
-            // Details requirements - Reduced height to make room for button
             _detailsReqLabel = new Label
             {
                 Text = "",
                 Font = new Font("Segoe UI", 9F),
-                ForeColor = Color.Orange,
-                Location = new Point(15, 150),
-                Size = new Size(formWidth - 80, 30),
+                ForeColor = Theme.Warning,
+                Location = new Point(12, 118),
+                Size = new Size(contentWidth - 140, 40),
                 BackColor = Color.Transparent
             };
             _detailsPanel.Controls.Add(_detailsReqLabel);
 
-            // Mod settings button (shown for mods with configurable settings)
             _modSettingsButton = new Button
             {
-                Text = "⚙ Settings",
+                Text = "Settings",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                Size = new Size(100, 28),
-                Location = new Point(15, 185),  // Below requirements
-                BackColor = Color.FromArgb(40, 80, 80),
-                ForeColor = AccentCyan,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand,
+                Size = new Size(110, 36),
+                Location = new Point(contentWidth - 122, 122),
                 Visible = false
             };
-            _modSettingsButton.FlatAppearance.BorderColor = AccentCyan;
-            _modSettingsButton.FlatAppearance.BorderSize = 1;
+            Theme.ApplyGhostButton(_modSettingsButton);
             _modSettingsButton.Click += ModSettingsButton_Click;
             _detailsPanel.Controls.Add(_modSettingsButton);
-            _modSettingsButton.BringToFront();  // Ensure button is on top
+            _modSettingsButton.BringToFront();
 
-            // Login section
+            var accountCard = new ThemePanel
+            {
+                Location = new Point(pad, 496),
+                Size = new Size(contentWidth, 88)
+            };
+            contentPanel.Controls.Add(accountCard);
+
             var loginSectionLabel = new Label
             {
-                Text = "LOGIN",
+                Text = "Account",
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                ForeColor = AccentMagenta,
+                ForeColor = Theme.BrandText,
                 AutoSize = true,
-                Location = new Point(25, 555),
+                Location = new Point(12, 8),
                 BackColor = Color.Transparent
             };
-            contentPanel.Controls.Add(loginSectionLabel);
+            accountCard.Controls.Add(loginSectionLabel);
 
             _loginUsernameBox = new TextBox
             {
-                Location = new Point(25, 580),
-                Size = new Size(140, 26),
+                Location = new Point(12, 36),
+                Size = new Size(140, 28),
                 Font = new Font("Segoe UI", 9F),
-                BackColor = DarkPanel,
-                ForeColor = TextLight,
-                BorderStyle = BorderStyle.FixedSingle,
                 Text = ""
             };
+            Theme.ApplyInput(_loginUsernameBox);
             _loginUsernameBox.GotFocus += (s, e) => { if (_loginUsernameBox.ForeColor == TextGray) { _loginUsernameBox.Text = ""; _loginUsernameBox.ForeColor = TextLight; } };
             _loginUsernameBox.LostFocus += (s, e) => { if (string.IsNullOrEmpty(_loginUsernameBox.Text)) { _loginUsernameBox.ForeColor = TextGray; _loginUsernameBox.Text = "Username"; } };
             _loginUsernameBox.ForeColor = TextGray;
             _loginUsernameBox.Text = "Username";
-            contentPanel.Controls.Add(_loginUsernameBox);
+            accountCard.Controls.Add(_loginUsernameBox);
 
             _loginPasswordBox = new TextBox
             {
-                Location = new Point(175, 580),
-                Size = new Size(140, 26),
+                Location = new Point(160, 36),
+                Size = new Size(140, 28),
                 Font = new Font("Segoe UI", 9F),
-                BackColor = DarkPanel,
-                ForeColor = TextLight,
-                BorderStyle = BorderStyle.FixedSingle,
                 UseSystemPasswordChar = true
             };
-            contentPanel.Controls.Add(_loginPasswordBox);
+            Theme.ApplyInput(_loginPasswordBox);
+            accountCard.Controls.Add(_loginPasswordBox);
             _loginPasswordBox.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) PerformMasterLogin(); };
-            
+
             _loginButton = new Button
             {
-                Text = "Login",
+                Text = "Log in",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                Size = new Size(70, 26),
-                Location = new Point(325, 580),
-                BackColor = DarkPanel,
-                ForeColor = AccentCyan,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
+                Size = new Size(80, 36),
+                Location = new Point(308, 32)
             };
-            _loginButton.FlatAppearance.BorderColor = AccentCyan;
-            _loginButton.FlatAppearance.BorderSize = 1;
+            Theme.ApplyPrimaryButton(_loginButton);
             _loginButton.Click += LoginButton_Click;
-            contentPanel.Controls.Add(_loginButton);
+            accountCard.Controls.Add(_loginButton);
 
             _adminPanelButton = new Button
             {
                 Text = "Admin",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                Size = new Size(70, 26),
-                Location = new Point(400, 580),
-                BackColor = DarkPanel,
-                ForeColor = AccentMagenta,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand,
+                Size = new Size(80, 36),
+                Location = new Point(396, 32),
                 Visible = false
             };
-            _adminPanelButton.FlatAppearance.BorderColor = AccentMagenta;
-            _adminPanelButton.FlatAppearance.BorderSize = 1;
+            Theme.ApplyGhostButton(_adminPanelButton);
             _adminPanelButton.Click += AdminPanelButton_Click;
-            contentPanel.Controls.Add(_adminPanelButton);
+            accountCard.Controls.Add(_adminPanelButton);
 
             _loginStatusLabel = new Label
             {
-                Text = "○ Not logged in",
+                Text = "Not logged in",
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextGray,
                 AutoSize = true,
-                Location = new Point(25, 612),
+                Location = new Point(488, 40),
                 BackColor = Color.Transparent
             };
-            contentPanel.Controls.Add(_loginStatusLabel);
+            accountCard.Controls.Add(_loginStatusLabel);
 
-            // Debug mode checkbox - Only visible to master login users
-            // MUST be created BEFORE CheckExistingLogin() so it can be shown/hidden
             _debugModeCheckBox = new CheckBox
             {
-                Text = "  🔧 Show Debug Console (Master Only)",
-                Location = new Point(25, 635),
+                Text = "Show debug console",
+                Location = new Point(12, 64),
                 AutoSize = true,
                 ForeColor = TextGray,
                 BackColor = Color.Transparent,
                 Checked = false,
                 Font = new Font("Segoe UI", 9F),
                 Cursor = Cursors.Hand,
-                Visible = false  // Hidden by default, shown only when master logged in
+                Visible = false
             };
-            contentPanel.Controls.Add(_debugModeCheckBox);
-            
-            // Check if already logged in (token file exists)
-            // This will show/hide the debug checkbox based on login status
+            accountCard.Controls.Add(_debugModeCheckBox);
+
             CheckExistingLogin();
 
-            // Play button - Moved down
             _playButton = new Button
             {
-                Text = "▶  LAUNCH HOLDFAST",
-                Font = new Font("Segoe UI", 14F, FontStyle.Bold),
-                Size = new Size(280, 55),
-                Location = new Point(formWidth - 305, 615),
-                BackColor = DarkPanel,
-                ForeColor = AccentCyan,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand,
+                Text = "Launch Holdfast",
+                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                Size = new Size(220, 44),
+                Location = new Point(formWidth - pad - 220, 596),
                 Enabled = false
             };
-            _playButton.FlatAppearance.BorderColor = AccentCyan;
-            _playButton.FlatAppearance.BorderSize = 2;
-            _playButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(40, 60, 60);
+            Theme.ApplyPrimaryButton(_playButton);
             _playButton.Click += PlayButton_Click;
             contentPanel.Controls.Add(_playButton);
 
-            // Disclaimer label at bottom
             var disclaimerLabel = new Label
             {
-                Text = "⚠ UNOFFICIAL TOOL - PC Only - Not affiliated with Anvil Game Studios",
+                Text = "Unofficial tool. PC only. Not affiliated with Anvil Game Studios.",
                 Font = new Font("Segoe UI", 8F),
-                ForeColor = Color.FromArgb(255, 180, 100),
+                ForeColor = Theme.Warning,
                 AutoSize = true,
-                Location = new Point(25, 678),
+                Location = new Point(pad, 600),
                 BackColor = Color.Transparent,
                 Cursor = Cursors.Hand
             };
@@ -557,35 +509,27 @@ namespace HoldfastModdingLauncher
             var disclaimerTooltip = new ToolTip();
             disclaimerTooltip.SetToolTip(disclaimerLabel, "Click for full disclaimer");
             contentPanel.Controls.Add(disclaimerLabel);
-            
-            // Credit label at bottom - Moved down
+
             var creditLabel = new Label
             {
-                Text = "Built by Xarkanoth  •  Discord.gg/csg",
-                Font = new Font("Segoe UI", 8F, FontStyle.Italic),
+                Text = "Built by Xarkanoth  ·  Discord.gg/csg",
+                Font = new Font("Segoe UI", 8F),
                 ForeColor = TextGray,
                 AutoSize = true,
-                Location = new Point(25, 695),
+                Location = new Point(pad, 618),
                 BackColor = Color.Transparent
             };
             contentPanel.Controls.Add(creditLabel);
 
-            // Donate button
             var donateButton = new Button
             {
-                Text = "☕ Support",
+                Text = "Support",
                 Font = new Font("Segoe UI", 8F, FontStyle.Bold),
-                Size = new Size(85, 24),
-                Location = new Point(220, 691),
-                BackColor = Color.FromArgb(255, 221, 51), // Buy Me a Coffee yellow
-                ForeColor = Color.Black,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
+                Size = new Size(80, 28),
+                Location = new Point(pad + 210, 614)
             };
-            donateButton.FlatAppearance.BorderColor = Color.FromArgb(255, 200, 0);
-            donateButton.FlatAppearance.BorderSize = 1;
-            donateButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(255, 240, 100);
-            donateButton.Click += (s, e) => 
+            Theme.ApplyGhostButton(donateButton);
+            donateButton.Click += (s, e) =>
             {
                 try
                 {
@@ -598,26 +542,24 @@ namespace HoldfastModdingLauncher
                 catch { }
             };
             var donateTooltip = new ToolTip();
-            donateTooltip.SetToolTip(donateButton, "Support development - Buy Me a Coffee");
+            donateTooltip.SetToolTip(donateButton, "Support development");
             contentPanel.Controls.Add(donateButton);
 
-            // Version label - Moved down
             var versionLabel = new Label
             {
                 Text = GetVersionString(),
                 Font = new Font("Segoe UI", 9F),
                 ForeColor = TextGray,
                 AutoSize = true,
-                Location = new Point(formWidth - 80, 690),
+                Location = new Point(formWidth - 80, 650),
                 BackColor = Color.Transparent
             };
             contentPanel.Controls.Add(versionLabel);
 
-            // Load and display mods
             LoadMods();
         }
 
-        private string GetVersionString()
+        private static string GetVersionString()
         {
             try
             {
@@ -664,7 +606,7 @@ namespace HoldfastModdingLauncher
             return "v1.0.0";
         }
         
-        private string GetTokenFilePath()
+        private static string GetTokenFilePath()
         {
             // Store token file in AppData for cross-location access
             string appDataFolder = Path.Combine(
@@ -797,24 +739,21 @@ namespace HoldfastModdingLauncher
             {
                 Name = "loginGatePanel",
                 Dock = DockStyle.Fill,
-                BackColor = Color.FromArgb(250, 18, 18, 22)
+                BackColor = Theme.PageBg
             };
 
-            var lockIcon = new Label
+            var brandBar = new Panel
             {
-                Text = "🔐",
-                Font = new Font("Segoe UI", 42F),
-                ForeColor = AccentCyan,
-                AutoSize = true,
-                BackColor = Color.Transparent
+                Size = new Size(48, 4),
+                BackColor = Theme.Brand
             };
-            _loginGatePanel.Controls.Add(lockIcon);
+            _loginGatePanel.Controls.Add(brandBar);
 
             var gateTitle = new Label
             {
-                Text = "HOLDFAST MODDING LAUNCHER",
-                Font = new Font("Segoe UI", 16F, FontStyle.Bold),
-                ForeColor = AccentCyan,
+                Text = "Holdfast Modding",
+                Font = new Font("Segoe UI", 18F, FontStyle.Bold),
+                ForeColor = Theme.BrandText,
                 AutoSize = true,
                 BackColor = Color.Transparent
             };
@@ -843,11 +782,9 @@ namespace HoldfastModdingLauncher
             var gateUsernameBox = new TextBox
             {
                 Size = new Size(280, 30),
-                Font = new Font("Segoe UI", 11F),
-                BackColor = DarkPanel,
-                ForeColor = TextLight,
-                BorderStyle = BorderStyle.FixedSingle
+                Font = new Font("Segoe UI", 11F)
             };
+            Theme.ApplyInput(gateUsernameBox);
             _loginGatePanel.Controls.Add(gateUsernameBox);
 
             var passwordLabel = new Label
@@ -864,11 +801,9 @@ namespace HoldfastModdingLauncher
             {
                 Size = new Size(280, 30),
                 Font = new Font("Segoe UI", 11F),
-                BackColor = DarkPanel,
-                ForeColor = TextLight,
-                BorderStyle = BorderStyle.FixedSingle,
                 UseSystemPasswordChar = true
             };
+            Theme.ApplyInput(gatePasswordBox);
             _loginGatePanel.Controls.Add(gatePasswordBox);
 
             var gateStatusLabel = new Label
@@ -884,32 +819,20 @@ namespace HoldfastModdingLauncher
 
             var loginBtn = new Button
             {
-                Text = "LOG IN",
+                Text = "Log in",
                 Font = new Font("Segoe UI", 11F, FontStyle.Bold),
-                Size = new Size(280, 40),
-                BackColor = DarkPanel,
-                ForeColor = AccentCyan,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
+                Size = new Size(280, 44)
             };
-            loginBtn.FlatAppearance.BorderColor = AccentCyan;
-            loginBtn.FlatAppearance.BorderSize = 2;
-            loginBtn.FlatAppearance.MouseOverBackColor = Color.FromArgb(30, 60, 60);
+            Theme.ApplyPrimaryButton(loginBtn);
             _loginGatePanel.Controls.Add(loginBtn);
 
             var registerBtn = new Button
             {
-                Text = "CREATE ACCOUNT",
+                Text = "Create account",
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                Size = new Size(280, 36),
-                BackColor = Color.Transparent,
-                ForeColor = AccentMagenta,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
+                Size = new Size(280, 40)
             };
-            registerBtn.FlatAppearance.BorderColor = AccentMagenta;
-            registerBtn.FlatAppearance.BorderSize = 1;
-            registerBtn.FlatAppearance.MouseOverBackColor = Color.FromArgb(40, 20, 40);
+            Theme.ApplyGhostButton(registerBtn);
             _loginGatePanel.Controls.Add(registerBtn);
 
             var keepLoggedInCheck = new CheckBox
@@ -925,13 +848,13 @@ namespace HoldfastModdingLauncher
             _loginGatePanel.Controls.Add(keepLoggedInCheck);
 
             // Layout positioning
-            Action layoutGate = () =>
+            void LayoutGate()
             {
                 int cx = _loginGatePanel.Width / 2;
                 int cy = _loginGatePanel.Height / 2;
                 int w = 280;
 
-                lockIcon.Location = new Point(cx - lockIcon.Width / 2, cy - 270);
+                brandBar.Location = new Point(cx - brandBar.Width / 2, cy - 190);
                 gateTitle.Location = new Point(cx - gateTitle.Width / 2, cy - 170);
                 gateSubtitle.Location = new Point(cx - gateSubtitle.Width / 2, cy - 140);
 
@@ -943,16 +866,16 @@ namespace HoldfastModdingLauncher
                 loginBtn.Location = new Point(cx - w / 2, cy + 30);
                 keepLoggedInCheck.Location = new Point(cx - w / 2, cy + 78);
                 registerBtn.Location = new Point(cx - w / 2, cy + 105);
-            };
+            }
 
-            _loginGatePanel.Resize += (s, e) => layoutGate();
+            _loginGatePanel.Resize += (s, e) => LayoutGate();
 
             this.Controls.Add(_loginGatePanel);
             _loginGatePanel.BringToFront();
-            layoutGate();
+            LayoutGate();
 
             // Async login handler
-            Func<Task> doLogin = async () =>
+            async Task DoLogin()
             {
                 string user = gateUsernameBox.Text.Trim();
                 string pass = gatePasswordBox.Text;
@@ -983,10 +906,10 @@ namespace HoldfastModdingLauncher
                     loginBtn.Enabled = true;
                     registerBtn.Enabled = true;
                 }
-            };
+            }
 
-            loginBtn.Click += async (s, e) => await doLogin();
-            gatePasswordBox.KeyDown += async (s, e) => { if (e.KeyCode == Keys.Enter) await doLogin(); };
+            loginBtn.Click += async (s, e) => await DoLogin();
+            gatePasswordBox.KeyDown += async (s, e) => { if (e.KeyCode == Keys.Enter) await DoLogin(); };
 
             // Register handler
             registerBtn.Click += async (s, e) =>
@@ -1077,7 +1000,7 @@ namespace HoldfastModdingLauncher
                     // Legacy format: {hash}|{clientName} (treated as MEMBER)
                     string[] parts = rawContent.Split('|');
                     string token = parts[0];
-                    string clientName = parts.Length > 1 ? parts[1] : null;
+                    string clientName = parts.Length > 1 ? parts[1] : string.Empty;
                     string role = parts.Length > 2 ? parts[2] : "MEMBER";
                     
                     if (VerifySecureToken(token) || token == "MASTER_ACCESS_GRANTED")
@@ -1098,30 +1021,9 @@ namespace HoldfastModdingLauncher
         }
         
         /// <summary>
-        /// Computes SHA256 hash of password with salt - one-way, cannot be reversed
-        /// </summary>
-        private string ComputePasswordHash(string password)
-        {
-            using (var sha256 = SHA256.Create())
-            {
-                // Combine password with salt
-                string saltedPassword = password + HASH_SALT;
-                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(saltedPassword));
-                
-                // Convert to hex string
-                var sb = new StringBuilder();
-                foreach (byte b in bytes)
-                {
-                    sb.Append(b.ToString("x2"));
-                }
-                return sb.ToString();
-            }
-        }
-        
-        /// <summary>
         /// Creates a machine-specific encrypted token that can't be copied to other computers
         /// </summary>
-        private string CreateSecureToken()
+        private static string CreateSecureToken()
         {
             // Create a token with machine ID and timestamp
             string machineId = Environment.MachineName + Environment.UserName;
@@ -1129,16 +1031,14 @@ namespace HoldfastModdingLauncher
             string tokenData = $"MASTER_ACCESS|{machineId}|{timestamp}";
             
             // Hash it so it can't be easily read or modified
-            using (var sha256 = SHA256.Create())
+            using var sha256 = SHA256.Create();
+            byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(tokenData + HASH_SALT));
+            var sb = new StringBuilder();
+            foreach (byte b in bytes)
             {
-                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(tokenData + HASH_SALT));
-                var sb = new StringBuilder();
-                foreach (byte b in bytes)
-                {
-                    sb.Append(b.ToString("x2"));
-                }
-                return sb.ToString();
+                sb.Append(b.ToString("x2"));
             }
+            return sb.ToString();
         }
         
         /// <summary>
@@ -1155,16 +1055,14 @@ namespace HoldfastModdingLauncher
             string yesterday = DateTime.UtcNow.AddDays(-1).ToString("yyyyMMdd");
             string yesterdayData = $"MASTER_ACCESS|{machineId}|{yesterday}";
             
-            using (var sha256 = SHA256.Create())
+            using var sha256 = SHA256.Create();
+            byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(yesterdayData + HASH_SALT));
+            var sb = new StringBuilder();
+            foreach (byte b in bytes)
             {
-                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(yesterdayData + HASH_SALT));
-                var sb = new StringBuilder();
-                foreach (byte b in bytes)
-                {
-                    sb.Append(b.ToString("x2"));
-                }
-                if (token == sb.ToString()) return true;
+                sb.Append(b.ToString("x2"));
             }
+            if (token == sb.ToString()) return true;
             
             return false;
         }
@@ -1234,9 +1132,8 @@ namespace HoldfastModdingLauncher
             {
                 string displayName = !string.IsNullOrEmpty(_loggedInClientName) ? _loggedInClientName : "Unknown";
                 bool isApiMaster = _apiClient?.IsMaster == true;
-                string source = _apiClient?.IsAuthenticated == true ? "Server" : "Offline";
                 string role = isApiMaster ? "Master" : "Member";
-                _loginStatusLabel.Text = $"✓ {displayName} ({role})";
+                _loginStatusLabel.Text = $"{displayName} ({role})";
                 _loginStatusLabel.ForeColor = SuccessGreen;
                 _loginButton.Text = "Logout";
                 _loginPasswordBox.Enabled = false;
@@ -1252,7 +1149,7 @@ namespace HoldfastModdingLauncher
             else
             {
                 _loggedInClientName = null;
-                _loginStatusLabel.Text = "○ Not logged in";
+                _loginStatusLabel.Text = "Not logged in";
                 _loginStatusLabel.ForeColor = TextGray;
                 _loginButton.Text = "Login";
                 _loginPasswordBox.Enabled = true;
@@ -1296,30 +1193,24 @@ namespace HoldfastModdingLauncher
                 return;
             }
 
-            using (var adminForm = new AdminPanelForm(_apiClient))
-            {
-                adminForm.ShowDialog(this);
-            }
+            using var adminForm = new AdminPanelForm(_apiClient);
+            adminForm.ShowDialog(this);
         }
 
         private void SettingsButton_Click(object sender, EventArgs e)
         {
-            using (var settingsForm = new SettingsForm(_holdfastManager, _preferencesManager))
-            {
-                settingsForm.ShowDialog(this);
-            }
+            using var settingsForm = new SettingsForm(_holdfastManager, _preferencesManager);
+            settingsForm.ShowDialog(this);
         }
         
         private void BrowseModsButton_Click(object sender, EventArgs e)
         {
-            using (var browserForm = new ModBrowserForm(_modManager, _apiClient))
-            {
-                browserForm.ShowDialog(this);
-                
-                // Refresh mods list after closing browser (in case mods were installed/uninstalled)
-                LoadMods();
-                CheckSetup();
-            }
+            using var browserForm = new ModBrowserForm(_modManager, _apiClient);
+            browserForm.ShowDialog(this);
+            
+            // Refresh mods list after closing browser (in case mods were installed/uninstalled)
+            LoadMods();
+            CheckSetup();
         }
         
         private void OpenModsFolder()
@@ -1378,7 +1269,7 @@ namespace HoldfastModdingLauncher
             }
         }
         
-        private void ShowDisclaimer()
+        private static void ShowDisclaimer()
         {
             DisclaimerForm.ShowDisclaimerInfo();
         }
@@ -1432,20 +1323,17 @@ namespace HoldfastModdingLauncher
                 Dock = DockStyle.Fill
             };
             
-            var lockIcon = new Label
+            var lockIcon = new Panel
             {
-                Text = "🔒",
-                Font = new Font("Segoe UI", 48F),
-                ForeColor = Color.FromArgb(255, 180, 100),
-                AutoSize = true,
-                BackColor = Color.Transparent
+                Size = new Size(48, 4),
+                BackColor = Theme.Danger
             };
             
             var lockTitle = new Label
             {
-                Text = "MODDING SYSTEM LOCKED",
+                Text = "Disclaimer required",
                 Font = new Font("Segoe UI", 18F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(220, 80, 80),
+                ForeColor = Theme.Danger,
                 AutoSize = true,
                 BackColor = Color.Transparent
             };
@@ -1464,15 +1352,11 @@ namespace HoldfastModdingLauncher
             
             var acceptButton = new Button
             {
-                Text = "📜  Review & Accept Disclaimer",
-                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-                Size = new Size(280, 45),
-                BackColor = Color.FromArgb(28, 28, 35),
-                ForeColor = Color.FromArgb(0, 200, 200),
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
+                Text = "Review and accept disclaimer",
+                Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+                Size = new Size(280, 44)
             };
-            acceptButton.FlatAppearance.BorderColor = Color.FromArgb(0, 200, 200);
+            Theme.ApplyPrimaryButton(acceptButton);
             acceptButton.Click += (s, e) =>
             {
                 bool accepted = DisclaimerForm.ShowFirstRunDisclaimer();
@@ -1498,14 +1382,10 @@ namespace HoldfastModdingLauncher
             var exitButton = new Button
             {
                 Text = "Exit",
-                Font = new Font("Segoe UI", 10F),
-                Size = new Size(100, 35),
-                BackColor = Color.FromArgb(28, 28, 35),
-                ForeColor = Color.FromArgb(140, 140, 140),
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                Size = new Size(100, 36)
             };
-            exitButton.FlatAppearance.BorderColor = Color.FromArgb(140, 140, 140);
+            Theme.ApplyGhostButton(exitButton);
             exitButton.Click += (s, e) => Application.Exit();
             
             // Center controls
@@ -1653,7 +1533,7 @@ namespace HoldfastModdingLauncher
             // Update requirements - prefer ModVersions.json
             if (!string.IsNullOrEmpty(mod.Requirements))
             {
-                _detailsReqLabel.Text = "⚠ REQUIREMENTS:\n" + mod.Requirements;
+                _detailsReqLabel.Text = "Requirements:\n" + mod.Requirements;
             }
             else
             {
@@ -1740,25 +1620,29 @@ namespace HoldfastModdingLauncher
                     modRow.Click += (s, e) => UpdateModDetails(mod.FileName);
                     
                     // Add right-click context menu for uninstall
-                    var contextMenu = new ContextMenuStrip();
-                    contextMenu.BackColor = DarkPanel;
-                    contextMenu.ForeColor = TextLight;
+                    var contextMenu = new ContextMenuStrip
+                    {
+                        BackColor = DarkPanel,
+                        ForeColor = TextLight
+                    };
                     
                     // Core mods cannot be uninstalled
                     if (!_modManager.IsCoreMod(mod.FileName))
                     {
-                        var uninstallItem = new ToolStripMenuItem("🗑 Uninstall Mod");
+                        var uninstallItem = new ToolStripMenuItem("Uninstall mod");
                         uninstallItem.Click += (s, e) => UninstallMod(mod.FileName, mod.FullPath);
                         contextMenu.Items.Add(uninstallItem);
                     }
                     else
                     {
-                        var uninstallItem = new ToolStripMenuItem("🔒 Core Mod (Cannot Uninstall)");
-                        uninstallItem.Enabled = false;
+                        var uninstallItem = new ToolStripMenuItem("Core mod (cannot uninstall)")
+                        {
+                            Enabled = false
+                        };
                         contextMenu.Items.Add(uninstallItem);
                     }
                     
-                    var openFolderItem = new ToolStripMenuItem("📁 Open Mods Folder");
+                    var openFolderItem = new ToolStripMenuItem("Open mods folder");
                     openFolderItem.Click += (s, e) => System.Diagnostics.Process.Start("explorer.exe", _modManager.GetModsFolderPath());
                     contextMenu.Items.Add(openFolderItem);
                     modRow.ContextMenuStrip = contextMenu;
@@ -2075,7 +1959,7 @@ namespace HoldfastModdingLauncher
             }
         }
 
-        private string FormatFileSize(long bytes)
+        private static string FormatFileSize(long bytes)
         {
             string[] sizes = { "B", "KB", "MB", "GB" };
             double len = bytes;
@@ -2083,7 +1967,7 @@ namespace HoldfastModdingLauncher
             while (len >= 1024 && order < sizes.Length - 1)
             {
                 order++;
-                len = len / 1024;
+                len /= 1024;
             }
             return $"{len:0.##} {sizes[order]}";
         }
@@ -2176,10 +2060,8 @@ namespace HoldfastModdingLauncher
                     Logger.LogInfo($"Update available: v{updateInfo.CurrentVersion} -> v{updateInfo.LatestVersion}");
                     
                     // Show update dialog
-                    using (var updateDialog = new UpdateDialog(updateInfo, _updateChecker))
-                    {
-                        updateDialog.ShowDialog(this);
-                    }
+                    using var updateDialog = new UpdateDialog(updateInfo, _updateChecker);
+                    updateDialog.ShowDialog(this);
                 }
                 else
                 {
@@ -2240,7 +2122,7 @@ namespace HoldfastModdingLauncher
                 
                 if (gameProcess != null)
                 {
-                    _statusLabel.Text = "▶ Playing...";
+                    _statusLabel.Text = "Playing...";
                     _statusLabel.ForeColor = SuccessGreen;
                     
                     // Monitor the game process in the background
@@ -2346,20 +2228,17 @@ namespace HoldfastModdingLauncher
                 BackColor = Color.FromArgb(245, 18, 18, 22)
             };
 
-            var lockIcon = new Label
+            var lockIcon = new Panel
             {
-                Text = "⚠",
-                Font = new Font("Segoe UI", 48F),
-                ForeColor = Color.FromArgb(220, 80, 80),
-                AutoSize = true,
-                BackColor = Color.Transparent
+                Size = new Size(48, 4),
+                BackColor = Theme.Danger
             };
 
             var lockTitle = new Label
             {
-                Text = "CORE MOD MISSING",
+                Text = "Core mod missing",
                 Font = new Font("Segoe UI", 18F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(220, 80, 80),
+                ForeColor = Theme.Danger,
                 AutoSize = true,
                 BackColor = Color.Transparent
             };
@@ -2378,22 +2257,15 @@ namespace HoldfastModdingLauncher
 
             var browseButton = new Button
             {
-                Text = "📦  Open Mod Browser",
+                Text = "Open mod browser",
                 Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-                Size = new Size(240, 45),
-                BackColor = Color.FromArgb(28, 28, 35),
-                ForeColor = AccentCyan,
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
+                Size = new Size(240, 44)
             };
-            browseButton.FlatAppearance.BorderColor = AccentCyan;
-            browseButton.FlatAppearance.BorderSize = 2;
+            Theme.ApplyPrimaryButton(browseButton);
             browseButton.Click += (s, e) =>
             {
-                using (var browser = new ModBrowserForm(_modManager, _apiClient))
-                {
-                    browser.ShowDialog(this);
-                }
+                using var browser = new ModBrowserForm(_modManager, _apiClient);
+                browser.ShowDialog(this);
 
                 // Re-check after mod browser closes
                 _coreModMissing = !VerifyLauncherCoreMod();
@@ -2411,19 +2283,15 @@ namespace HoldfastModdingLauncher
             var exitButton = new Button
             {
                 Text = "Exit",
-                Font = new Font("Segoe UI", 10F),
-                Size = new Size(100, 35),
-                BackColor = Color.FromArgb(28, 28, 35),
-                ForeColor = Color.FromArgb(140, 140, 140),
-                FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                Size = new Size(100, 36)
             };
-            exitButton.FlatAppearance.BorderColor = Color.FromArgb(80, 80, 80);
+            Theme.ApplyGhostButton(exitButton);
             exitButton.Click += (s, e) => Application.Exit();
 
             _coreModLockPanel.Controls.AddRange(new Control[] { lockIcon, lockTitle, lockMessage, browseButton, exitButton });
 
-            Action layoutLock = () =>
+            void LayoutLock()
             {
                 int cx = _coreModLockPanel.Width / 2;
                 int cy = _coreModLockPanel.Height / 2;
@@ -2432,182 +2300,87 @@ namespace HoldfastModdingLauncher
                 lockMessage.Location = new Point(cx - lockMessage.Width / 2, cy - 40);
                 browseButton.Location = new Point(cx - browseButton.Width / 2, cy + 75);
                 exitButton.Location = new Point(cx - exitButton.Width / 2, cy + 130);
-            };
+            }
 
-            _coreModLockPanel.Resize += (s, e) => layoutLock();
+            _coreModLockPanel.Resize += (s, e) => LayoutLock();
 
             this.Controls.Add(_coreModLockPanel);
             _coreModLockPanel.BringToFront();
-            layoutLock();
+            LayoutLock();
         }
 
-        /// <summary>
-        /// Shows a critical error dialog that prevents the launcher from functioning.
-        /// </summary>
-        private void ShowCriticalError(string title, string message)
-        {
-            try
-            {
-                using (var errorForm = new Form())
-                {
-                    errorForm.Text = title;
-                    errorForm.AutoScaleMode = AutoScaleMode.None;
-                    errorForm.FormBorderStyle = FormBorderStyle.FixedDialog;
-                    errorForm.ClientSize = new Size(500, 250);
-                    errorForm.StartPosition = FormStartPosition.CenterScreen;
-                    errorForm.BackColor = DarkBg;
-                    errorForm.ForeColor = TextLight;
-                    errorForm.MaximizeBox = false;
-                    errorForm.MinimizeBox = false;
-                    errorForm.ControlBox = true;
-                    
-                    var titleBar = new Panel
-                    {
-                        BackColor = Color.FromArgb(100, 0, 0),
-                        Location = new Point(0, 0)
-                    };
-                    var titleLabel = new Label
-                    {
-                        Text = $"✗ {title}",
-                        Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-                        ForeColor = Color.Red,
-                        Location = new Point(15, 12),
-                        AutoSize = true,
-                        BackColor = Color.Transparent
-                    };
-                    titleBar.Controls.Add(titleLabel);
-                    errorForm.Controls.Add(titleBar);
-                    
-                    var messageLabel = new Label
-                    {
-                        Text = message,
-                        Font = new Font("Segoe UI", 10F),
-                        ForeColor = TextLight,
-                        BackColor = Color.Transparent
-                    };
-                    errorForm.Controls.Add(messageLabel);
-                    
-                    var okButton = new Button
-                    {
-                        Text = "OK",
-                        Size = new Size(100, 35),
-                        BackColor = Color.FromArgb(60, 60, 70),
-                        ForeColor = TextLight,
-                        FlatStyle = FlatStyle.Flat,
-                        DialogResult = DialogResult.OK
-                    };
-                    okButton.FlatAppearance.BorderColor = AccentCyan;
-                    okButton.FlatAppearance.BorderSize = 1;
-                    errorForm.Controls.Add(okButton);
-                    errorForm.AcceptButton = okButton;
-                    
-                    errorForm.Layout += (s, le) =>
-                    {
-                        int w = errorForm.ClientSize.Width;
-                        int h = errorForm.ClientSize.Height;
-                        titleBar.Size = new Size(w, 50);
-                        messageLabel.Location = new Point(20, 70);
-                        messageLabel.Size = new Size(w - 40, h - 130);
-                        okButton.Location = new Point((w - 100) / 2, h - 45);
-                    };
-                    
-                    errorForm.ShowDialog();
-                }
-            }
-            catch
-            {
-                MessageBox.Show(message, title, MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-        
         private void ShowCustomMessage(string message, string title, MessageBoxIcon icon)
         {
-            using (var msgForm = new Form())
+            using var msgForm = new Form();
+            msgForm.Text = title;
+            msgForm.AutoScaleMode = AutoScaleMode.None;
+            msgForm.FormBorderStyle = FormBorderStyle.None;
+            msgForm.ClientSize = new Size(420, 180);
+            msgForm.StartPosition = FormStartPosition.CenterParent;
+            msgForm.BackColor = DarkBg;
+            msgForm.ForeColor = TextLight;
+
+            var titleBar = new Panel
             {
-                msgForm.Text = title;
-                msgForm.AutoScaleMode = AutoScaleMode.None;
-                msgForm.FormBorderStyle = FormBorderStyle.None;
-                msgForm.ClientSize = new Size(420, 180);
-                msgForm.StartPosition = FormStartPosition.CenterParent;
-                msgForm.BackColor = DarkBg;
-                msgForm.ForeColor = TextLight;
-                
-                var titleBar = new Panel
-                {
-                    BackColor = DarkPanel,
-                    Location = new Point(0, 0)
-                };
-                msgForm.Controls.Add(titleBar);
-                
-                string iconSymbol = icon switch
-                {
-                    MessageBoxIcon.Warning => "⚠",
-                    MessageBoxIcon.Error => "✗",
-                    _ => "✓"
-                };
-                Color iconColor = icon switch
-                {
-                    MessageBoxIcon.Warning => Color.Orange,
-                    MessageBoxIcon.Error => Color.Red,
-                    _ => SuccessGreen
-                };
-                
-                var titleLbl = new Label
-                {
-                    Text = $"{iconSymbol}  {title}",
-                    Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-                    ForeColor = iconColor,
-                    AutoSize = true,
-                    Location = new Point(18, 12),
-                    BackColor = Color.Transparent
-                };
-                titleBar.Controls.Add(titleLbl);
-                
-                var msgLabel = new Label
-                {
-                    Text = message,
-                    Font = new Font("Segoe UI", 10F),
-                    ForeColor = TextLight,
-                    BackColor = Color.Transparent
-                };
-                msgForm.Controls.Add(msgLabel);
-                
-                var okBtn = new Button
-                {
-                    Text = "OK",
-                    Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                    Size = new Size(85, 35),
-                    BackColor = DarkPanel,
-                    ForeColor = AccentCyan,
-                    FlatStyle = FlatStyle.Flat,
-                    Cursor = Cursors.Hand,
-                    DialogResult = DialogResult.OK
-                };
-                okBtn.FlatAppearance.BorderColor = AccentCyan;
-                okBtn.FlatAppearance.BorderSize = 1;
-                okBtn.FlatAppearance.MouseOverBackColor = Color.FromArgb(40, 60, 60);
-                msgForm.Controls.Add(okBtn);
-                
-                msgForm.Layout += (s, le) =>
-                {
-                    int w = msgForm.ClientSize.Width;
-                    int h = msgForm.ClientSize.Height;
-                    titleBar.Size = new Size(w, 45);
-                    msgLabel.Location = new Point(22, 60);
-                    msgLabel.Size = new Size(w - 44, h - 110);
-                    okBtn.Location = new Point(w - 85 - 20, h - 35 - 10);
-                };
-                
-                msgForm.Paint += (s, pe) =>
-                {
-                    using (var pen = new Pen(Color.FromArgb(50, 50, 55), 2))
-                    {
-                        pe.Graphics.DrawRectangle(pen, 0, 0, msgForm.Width - 1, msgForm.Height - 1);
-                    }
-                };
-                
-                msgForm.ShowDialog(this);
-            }
+                BackColor = DarkPanel,
+                Location = new Point(0, 0)
+            };
+            msgForm.Controls.Add(titleBar);
+
+            Color iconColor = icon switch
+            {
+                MessageBoxIcon.Warning => Theme.Warning,
+                MessageBoxIcon.Error => Theme.Danger,
+                _ => SuccessGreen
+            };
+
+            var titleLbl = new Label
+            {
+                Text = title,
+                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                ForeColor = iconColor,
+                AutoSize = true,
+                Location = new Point(18, 12),
+                BackColor = Color.Transparent
+            };
+            titleBar.Controls.Add(titleLbl);
+
+            var msgLabel = new Label
+            {
+                Text = message,
+                Font = new Font("Segoe UI", 10F),
+                ForeColor = TextLight,
+                BackColor = Color.Transparent
+            };
+            msgForm.Controls.Add(msgLabel);
+
+            var okBtn = new Button
+            {
+                Text = "OK",
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                Size = new Size(85, 36),
+                DialogResult = DialogResult.OK
+            };
+            Theme.ApplyPrimaryButton(okBtn);
+            msgForm.Controls.Add(okBtn);
+
+            msgForm.Layout += (s, le) =>
+            {
+                int w = msgForm.ClientSize.Width;
+                int h = msgForm.ClientSize.Height;
+                titleBar.Size = new Size(w, 45);
+                msgLabel.Location = new Point(22, 60);
+                msgLabel.Size = new Size(w - 44, h - 110);
+                okBtn.Location = new Point(w - 85 - 20, h - 35 - 10);
+            };
+
+            msgForm.Paint += (s, pe) =>
+            {
+                using var pen = new Pen(Color.FromArgb(50, 50, 55), 2);
+                pe.Graphics.DrawRectangle(pen, 0, 0, msgForm.Width - 1, msgForm.Height - 1);
+            };
+
+            msgForm.ShowDialog(this);
         }
     }
 }

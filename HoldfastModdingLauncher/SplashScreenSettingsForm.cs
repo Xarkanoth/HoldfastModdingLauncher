@@ -11,13 +11,13 @@ namespace HoldfastModdingLauncher
 {
     public class SplashScreenSettingsForm : Form
     {
-        private static readonly Color DarkBg = Color.FromArgb(18, 18, 22);
-        private static readonly Color DarkPanel = Color.FromArgb(28, 28, 35);
-        private static readonly Color AccentCyan = Color.FromArgb(0, 255, 255);
-        private static readonly Color AccentOrange = Color.FromArgb(255, 165, 0);
-        private static readonly Color TextLight = Color.FromArgb(240, 240, 240);
-        private static readonly Color TextGray = Color.FromArgb(140, 140, 140);
-        private static readonly Color SuccessGreen = Color.FromArgb(80, 200, 120);
+        private static readonly Color DarkBg = Theme.PageBg;
+        private static readonly Color DarkPanel = Theme.Panel;
+        private static readonly Color AccentCyan = Theme.Brand;
+        private static readonly Color AccentOrange = Theme.Warning;
+        private static readonly Color TextLight = Theme.Text;
+        private static readonly Color TextGray = Theme.TextMuted;
+        private static readonly Color SuccessGreen = Theme.Success;
 
         private Panel _videoListPanel;
         private Label _statusLabel;
