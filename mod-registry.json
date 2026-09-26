@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.75 - Cannonballs, grapeshot, and mortar shells draw on the admin map along the path the shot actually flies.",
+            "changelog": "v1.0.76 - No change to the admin tools. Unused startup code was removed so the editor stops flagging Unity methods.",
             "dependencies": [],
             "isEnabled": true
         },
