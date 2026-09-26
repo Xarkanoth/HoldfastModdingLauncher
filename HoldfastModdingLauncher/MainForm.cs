@@ -1791,18 +1791,13 @@ namespace HoldfastModdingLauncher
             {
                 CrosshairSettingsForm.ShowSettings(holdfastPath, _preferencesManager);
             }
-            else if (modName.Equals("AutoBlock", StringComparison.OrdinalIgnoreCase))
-            {
-                AutoBlockSettingsForm.ShowSettings(holdfastPath);
-            }
         }
 
         private static bool ModHasSettings(string modFileName)
         {
             string name = Path.GetFileNameWithoutExtension(modFileName);
             return name.Equals("CustomSplashScreen", StringComparison.OrdinalIgnoreCase)
-                || name.Equals("CustomCrosshairs", StringComparison.OrdinalIgnoreCase)
-                || name.Equals("AutoBlock", StringComparison.OrdinalIgnoreCase);
+                || name.Equals("CustomCrosshairs", StringComparison.OrdinalIgnoreCase);
         }
 
         private async void LoadMods()

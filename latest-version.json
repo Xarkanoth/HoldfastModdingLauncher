@@ -1,6 +1,6 @@
 {
-  "version": "2.0.3",
-  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v2.0.3/HoldfastModdingLauncher-v2.0.3.zip",
-  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v2.0.3",
-  "releaseNotes": "Auto Block has a Settings button. Set how fast you block, how long the block stays up, and how quickly it follows a new swing."
+  "version": "2.0.4",
+  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v2.0.4/HoldfastModdingLauncher-v2.0.4.zip",
+  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v2.0.4",
+  "releaseNotes": "Removed the Auto Block timing settings. The block is immediate again."
 }
