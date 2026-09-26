@@ -1763,11 +1763,7 @@ namespace HoldfastModdingLauncher
 
             // Show settings button for mods with configurable settings
             // Check both filename and mod name (without extension) for flexibility
-            string modNameNoExt = Path.GetFileNameWithoutExtension(modFileName);
-            bool hasSettings = modFileName.Equals("CustomSplashScreen.dll", StringComparison.OrdinalIgnoreCase) ||
-                               modNameNoExt.Equals("CustomSplashScreen", StringComparison.OrdinalIgnoreCase) ||
-                               modFileName.Equals("CustomCrosshairs.dll", StringComparison.OrdinalIgnoreCase) ||
-                               modNameNoExt.Equals("CustomCrosshairs", StringComparison.OrdinalIgnoreCase);
+            bool hasSettings = ModHasSettings(modFileName);
             _modSettingsButton.Visible = hasSettings;
             LayoutDetailsPanel();
             
@@ -1786,18 +1782,27 @@ namespace HoldfastModdingLauncher
                 return;
             }
 
-            // Open settings for specific mods
-            string modNameNoExt = Path.GetFileNameWithoutExtension(_selectedModFileName);
-            if (_selectedModFileName.Equals("CustomSplashScreen.dll", StringComparison.OrdinalIgnoreCase) ||
-                modNameNoExt.Equals("CustomSplashScreen", StringComparison.OrdinalIgnoreCase))
+            string modName = Path.GetFileNameWithoutExtension(_selectedModFileName);
+            if (modName.Equals("CustomSplashScreen", StringComparison.OrdinalIgnoreCase))
             {
                 SplashScreenSettingsForm.ShowSettings(holdfastPath, _apiClient);
             }
-            else if (_selectedModFileName.Equals("CustomCrosshairs.dll", StringComparison.OrdinalIgnoreCase) ||
-                     modNameNoExt.Equals("CustomCrosshairs", StringComparison.OrdinalIgnoreCase))
+            else if (modName.Equals("CustomCrosshairs", StringComparison.OrdinalIgnoreCase))
             {
                 CrosshairSettingsForm.ShowSettings(holdfastPath, _preferencesManager);
             }
+            else if (modName.Equals("AutoBlock", StringComparison.OrdinalIgnoreCase))
+            {
+                AutoBlockSettingsForm.ShowSettings(holdfastPath);
+            }
+        }
+
+        private static bool ModHasSettings(string modFileName)
+        {
+            string name = Path.GetFileNameWithoutExtension(modFileName);
+            return name.Equals("CustomSplashScreen", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("CustomCrosshairs", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("AutoBlock", StringComparison.OrdinalIgnoreCase);
         }
 
         private async void LoadMods()

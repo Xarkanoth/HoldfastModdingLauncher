@@ -1,6 +1,6 @@
 {
-  "version": "2.0.2",
-  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v2.0.2/HoldfastModdingLauncher-v2.0.2.zip",
-  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v2.0.2",
-  "releaseNotes": "Enabled mods sit at the top of the list. Mods with an update sit above those."
+  "version": "2.0.3",
+  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v2.0.3/HoldfastModdingLauncher-v2.0.3.zip",
+  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v2.0.3",
+  "releaseNotes": "Auto Block has a Settings button. Set how fast you block, how long the block stays up, and how quickly it follows a new swing."
 }
