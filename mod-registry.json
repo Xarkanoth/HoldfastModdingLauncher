@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.74 - The admin map uses the real Holdfast factions. Kingdom of Prussia, Italy, and Spain are no longer drawn as British, and American Loyalists are no longer labeled United States.",
+            "changelog": "v1.0.75 - Cannonballs, grapeshot, and mortar shells draw on the admin map along the path the shot actually flies.",
             "dependencies": [],
             "isEnabled": true
         },
