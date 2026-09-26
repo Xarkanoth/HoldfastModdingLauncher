@@ -72,7 +72,7 @@
             "dllName": "MapCapture.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.2.14 - The terrain photo keeps the game's colour grade, and DLSS, FSR, and ambient occlusion are paused for the shot so they no longer write a black frame. If that shot is empty, the plain photo is saved instead. v1.2.13 turned post processing on and the Sharpton ground came out black.",
+            "changelog": "v1.2.15 - The terrain photo is taken on a real frame, so the game's colour grade is the picture that gets saved. Camera.Render() was finishing before that grade was written, which is why the file stayed dark. If the graded shot is empty, the plain photo is saved instead.",
             "dependencies": [],
             "isEnabled": true
         }
