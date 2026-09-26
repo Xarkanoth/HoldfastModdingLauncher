@@ -72,7 +72,7 @@
             "dllName": "MapCapture.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.2.10 - Also hides Backgroundscene_Final, the main menu town, so those buildings stay out of the map. v1.2.9 hides MainMenuScene and lights the terrain photo with the real sun.",
+            "changelog": "v1.2.11 - A menu export hides every scene that was open before the map loaded (menu, background town, soldier, screen wipe), so none of it lands in the map. Windmill spin is measured on the turning parent. Meshes up to 320k vertices are kept. v1.2.10 missed the background town because of its capital S.",
             "dependencies": [],
             "isEnabled": true
         }
