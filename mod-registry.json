@@ -72,7 +72,7 @@
             "dllName": "MapCapture.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.2.16 - Colour maps for props and rocks are saved larger. The old size cut a shared rock atlas down so far that each stone was a small blurry square.",
+            "changelog": "v1.2.17 - Colour maps for rocks and props are saved at 2048, and the ground height grid is 1024. The last capture still left each rock on a shared atlas soft.",
             "dependencies": [],
             "isEnabled": true
         }
