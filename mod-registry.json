@@ -72,7 +72,7 @@
             "dllName": "MapCapture.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.2.12 - Keeps the menu sun for the capture, and takes the water height from the biggest water surface instead of the first prop. v1.2.11 hid the menu scenes but flattened the height map and turned the sun off.",
+            "changelog": "v1.2.13 - The terrain photo and the top-down picture are taken through the game's own post processing (tonemap, colour grading, Beautify), so the ground has the colours a player sees. Vignette, depth of field, flares, and blur are switched off for the shot. map.json marks the photo as already lit.",
             "dependencies": [],
             "isEnabled": true
         }
