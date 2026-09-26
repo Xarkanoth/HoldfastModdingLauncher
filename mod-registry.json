@@ -58,6 +58,23 @@
             "changelog": "v1.0.6 - Custom crosshair replacement with settings UI.",
             "dependencies": [],
             "isEnabled": true
+        },
+        {
+            "id": "MapCapture",
+            "name": "Map Capture",
+            "description": "Exports Holdfast terrain, scene meshes, materials, textures, vegetation, lighting, spawn sections, and an overhead color map. Pick official maps from the main menu, or run a local rotation.",
+            "author": "Xarkanoth",
+            "minLauncherVersion": "1.0.80",
+            "requirements": "Requires LauncherCoreMod. Harvest tool for local map rotations.",
+            "category": "Utilities",
+            "tags": ["map", "terrain", "export", "3d", "capture"],
+            "repositoryUrl": "https://github.com/Xarkanoth/HoldfastMods",
+            "dllName": "MapCapture.dll",
+            "iconUrl": "",
+            "screenshots": [],
+            "changelog": "v1.2.0 - Menu list of official maps, with re-export. Shared textures are stored by image contents.",
+            "dependencies": [],
+            "isEnabled": true
         }
     ],
     "categories": [

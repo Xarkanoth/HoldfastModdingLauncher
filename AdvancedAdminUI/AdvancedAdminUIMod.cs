@@ -169,7 +169,7 @@ namespace AdvancedAdminUI
             ColoredLogger.Initialize(Log);
             
             ColoredLogger.Log(ColoredLogger.BrightCyan, "═══════════════════════════════════════════");
-            ColoredLogger.Log(ColoredLogger.BrightCyan, "       Advanced Admin UI v1.0.0");
+            ColoredLogger.Log(ColoredLogger.BrightCyan, "       Advanced Admin UI v1.0.71");
             ColoredLogger.Log(ColoredLogger.BrightCyan, "═══════════════════════════════════════════");
             
             try
@@ -300,6 +300,8 @@ namespace AdvancedAdminUI
                     _instance._afkFeature.Enable();
                 if (_instance._minimapFeature != null)
                     _instance._minimapFeature.Enable();
+                if (_instance._teleportFeature != null)
+                    _instance._teleportFeature.Enable();
                 if (_instance._uiFeature != null)
                     _instance._uiFeature.Enable();
             }
@@ -348,10 +350,6 @@ namespace AdvancedAdminUI
                     else if (feature is CavalryVisualizationFeature cavalry)
                     {
                         cavalry.CleanupAllRings();
-                    }
-                    else if (feature is MinimapFeature minimap)
-                    {
-                        minimap.OnNewRound();
                     }
                 }
                 catch { }
@@ -408,7 +406,10 @@ namespace AdvancedAdminUI
                 return;
                 
             _isReloading = true;
-            StartCoroutine(ReloadModCoroutine());
+            if (Runner != null)
+                Runner.StartCoroutine(ReloadModCoroutine());
+            else
+                StartCoroutine(ReloadModCoroutine());
         }
         
         private IEnumerator ReloadModCoroutine()

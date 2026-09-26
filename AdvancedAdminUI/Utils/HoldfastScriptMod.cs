@@ -1,20 +1,16 @@
 using System;
-using System.Linq;
 using System.Reflection;
 
 using UnityEngine;
 using HoldfastSharedMethods;
-using HarmonyLib;
 
 namespace AdvancedAdminUI.Utils
 {
     /// <summary>
-    /// Harmony patches to capture admin events BEFORE mod loader registration
-    /// These patch the game's internal event dispatcher to catch OnPlayerConnected and OnRCLogin early
+    /// RC login and auto-admin come from LauncherCoreMod. This used to scan the game assembly at startup.
     /// </summary>
     public static class AdminEventPatches
     {
-        private static Harmony _harmony;
         private static bool _patchesApplied = false;
         
         // Store captured auto-admin status before we're fully registered
@@ -26,103 +22,11 @@ namespace AdvancedAdminUI.Utils
         public static void ApplyPatches()
         {
             if (_patchesApplied) return;
-            
-            try
-            {
-                _harmony = new Harmony("com.xarkanoth.advancedadminui.adminevents");
-                
-                // Find the ClientModLoaderManager class which dispatches events to mods
-                Assembly assemblyCSharp = Assembly.Load("Assembly-CSharp");
-                
-                // Try to find method that calls OnPlayerConnected on mods
-                Type clientModLoaderType = assemblyCSharp.GetType("HoldfastGame.ClientModLoaderManager");
-                if (clientModLoaderType == null)
-                {
-                    AdvancedAdminUIMod.Log.LogInfo("[AdminEventPatches] ClientModLoaderManager not found - trying alternative types");
-                    
-                    // List types that might handle events
-                    foreach (Type t in assemblyCSharp.GetTypes())
-                    {
-                        string name = t.Name.ToLower();
-                        if (name.Contains("modloader") || name.Contains("rclogin") || name.Contains("admin"))
-                        {
-                            AdvancedAdminUIMod.Log.LogInfo($"[AdminEventPatches] Found potential type: {t.FullName}");
-                        }
-                    }
-                }
-                else
-                {
-                    AdvancedAdminUIMod.Log.LogInfo("[AdminEventPatches] Found ClientModLoaderManager - looking for event methods");
-                    
-                    // Look for methods that dispatch OnPlayerConnected or OnRCLogin
-                    foreach (MethodInfo method in clientModLoaderType.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
-                    {
-                        string methodName = method.Name.ToLower();
-                        if (methodName.Contains("playerconnected") || methodName.Contains("rclogin") || methodName.Contains("autoadmin"))
-                        {
-                            AdvancedAdminUIMod.Log.LogInfo($"[AdminEventPatches] Found method: {method.Name}({string.Join(", ", method.GetParameters().Select(p => p.ParameterType.Name))})");
-                        }
-                    }
-                }
-                
-                // Try to find and patch the RC login handler directly
-                Type[] allTypes = assemblyCSharp.GetTypes();
-                foreach (Type t in allTypes)
-                {
-                    if (t.Name.Contains("RC") || t.Name.Contains("Admin") || t.Name.Contains("Console"))
-                    {
-                        foreach (MethodInfo m in t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
-                        {
-                            string mName = m.Name.ToLower();
-                            if (mName.Contains("login") || mName.Contains("autoadmin") || mName.Contains("onplayerconnected"))
-                            {
-                                AdvancedAdminUIMod.Log.LogInfo($"[AdminEventPatches] Potential patch target: {t.Name}.{m.Name}");
-                                
-                                if (mName.Contains("login") && m.GetParameters().Length >= 2)
-                                {
-                                    try
-                                    {
-                                        var postfix = new HarmonyMethod(typeof(AdminEventPatches).GetMethod(nameof(OnRCLoginPostfix), BindingFlags.Static | BindingFlags.NonPublic));
-                                        _harmony.Patch(m, postfix: postfix);
-                                        AdvancedAdminUIMod.Log.LogInfo($"[AdminEventPatches] ✓ Patched {t.Name}.{m.Name}");
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        AdvancedAdminUIMod.Log.LogInfo($"[AdminEventPatches] Could not patch {t.Name}.{m.Name}: {ex.Message}");
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                _patchesApplied = true;
-                AdvancedAdminUIMod.Log.LogInfo("[AdminEventPatches] Patch exploration complete");
-            }
-            catch (Exception ex)
-            {
-                AdvancedAdminUIMod.Log.LogError($"[AdminEventPatches] Error applying patches: {ex.Message}");
-            }
-        }
-        
-        private static void OnRCLoginPostfix(object[] __args)
-        {
-            try
-            {
-                ColoredLogger.Log(ColoredLogger.BrightYellow, $"[AdminEventPatches] ★ Captured login method call with {__args?.Length ?? 0} args");
-                
-                // Try to extract player ID from args and set the captured flag
-                if (__args != null && __args.Length >= 1)
-                {
-                    if (__args[0] is int playerId)
-                    {
-                        CapturedRCLogin = true;
-                        CapturedRCLoginPlayerId = playerId;
-                        ColoredLogger.Log(ColoredLogger.BrightGreen, $"[AdminEventPatches] Captured RC login for player ID: {playerId}");
-                    }
-                }
-            }
-            catch { }
+            _patchesApplied = true;
+            // RC login and auto-admin arrive from LauncherCoreMod.
+            // Walking every type in Assembly-CSharp and patching login methods
+            // hitches startup and can patch the wrong method.
+            AdvancedAdminUIMod.Log?.LogInfo("[AdminEventPatches] Using LauncherCoreMod events for RC login");
         }
         
         public static void CheckCapturedAdminStatus()
@@ -210,6 +114,7 @@ namespace AdvancedAdminUI.Utils
                 SubscribeToEvent("OnPlayerSpawned", nameof(HandlePlayerSpawned));
                 SubscribeToEvent("OnPlayerPacket", nameof(HandlePlayerPacket));
                 SubscribeToEvent("OnPlayerKilledPlayer", nameof(HandlePlayerKilledPlayer));
+                SubscribeToEvent("OnMapShot", nameof(HandleMapShot));
                 SubscribeToEvent("OnRoundDetails", nameof(HandleRoundDetails));
                 SubscribeToEvent("OnRoundEndFactionWinner", nameof(HandleRoundEndFactionWinner));
                 SubscribeToEvent("OnRCLogin", nameof(HandleRCLogin));
@@ -334,6 +239,11 @@ namespace AdvancedAdminUI.Utils
         private static void HandlePlayerKilledPlayer(int killerPlayerId, int victimPlayerId, EntityHealthChangedReason reason, string details)
         {
             PlayerEventManager.OnPlayerKilledPlayer(killerPlayerId, victimPlayerId, reason, details);
+        }
+
+        private static void HandleMapShot(int playerId, float ox, float oz, float hx, float hz)
+        {
+            PlayerEventManager.OnMapShot(playerId, ox, oz, hx, hz);
         }
         
         private static void HandleRoundDetails(int roundId, string serverName, string mapName, FactionCountry attackingFaction, FactionCountry defendingFaction, GameplayMode gameplayMode, GameType gameType)

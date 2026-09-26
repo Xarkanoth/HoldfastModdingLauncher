@@ -27,10 +27,12 @@ namespace AdvancedAdminUI.Utils
             public int SpawnSectionId { get; set; }
             public int UniformId { get; set; }
             public Vector3 LastKnownPosition { get; set; }
+            public float LastKnownYaw { get; set; }
             public float LastUpdateTime { get; set; }
+            public bool IsSpawned { get; set; }
         }
 
-        private static readonly ConcurrentDictionary<int, PlayerData> _players = new ConcurrentDictionary<int, PlayerData>();
+        private static readonly ConcurrentDictionary<int, PlayerData> _players = new();
         private static int _initialized = 0; // Use Interlocked for thread-safe initialization
         private static UnityEngine.Coroutine _scanCoroutine = null;
 
@@ -56,6 +58,8 @@ namespace AdvancedAdminUI.Utils
                 
                 // Subscribe to OnRoundDetails to clear player data on new round (keep IDs only)
                 PlayerEventManager._onRoundDetailsCallbacks.Add(OnRoundDetails);
+                PlayerEventManager._onRoundEndFactionWinnerCallbacks.Add(OnRoundEnd);
+                PlayerEventManager._onRoundEndPlayerWinnerCallbacks.Add(OnRoundEndPlayer);
                 
                 // Subscribe to client connection changes to clear all data on disconnect
                 PlayerEventManager._onClientConnectionChangedCallbacks.Add(OnClientConnectionChanged);
@@ -96,8 +100,7 @@ namespace AdvancedAdminUI.Utils
                 try
                 {
                     var runner = AdvancedAdminUIMod.Runner;
-                    if (runner != null)
-                        runner.StopCoroutine(_scanCoroutine);
+                    runner?.StopCoroutine(_scanCoroutine);
                 }
                 catch { }
                 _scanCoroutine = null;
@@ -166,12 +169,7 @@ namespace AdvancedAdminUI.Utils
                     continue;
                 
                 // Try to get class/faction from GameObject or components
-                string className = "Unknown";
-                string factionName = "Unknown";
-                
-                // Try to find class/faction info from components or parent
-                // This is a best-effort attempt since we don't have spawn data
-                TryExtractPlayerInfo(playerObj, out className, out factionName);
+                TryExtractPlayerInfo(playerObj, out string className, out string factionName);
                 
                 _players.TryAdd(playerId, new PlayerData
                 {
@@ -183,7 +181,8 @@ namespace AdvancedAdminUI.Utils
                     SpawnSectionId = 0,
                     UniformId = 0,
                     LastKnownPosition = playerTransform.position,
-                    LastUpdateTime = Time.time
+                    LastUpdateTime = Time.time,
+                    IsSpawned = true
                 });
                 
                 foundCount++;
@@ -277,47 +276,29 @@ namespace AdvancedAdminUI.Utils
         /// </summary>
         private static void OnPlayerSpawnedExtended(int playerId, int spawnSectionId, object playerFaction, object playerClass, int uniformId, GameObject playerObject)
         {
-            if (playerObject == null || playerObject.transform == null)
-                return;
-
             try
             {
-                // Convert faction and class objects to strings
                 string className = ExtractEnumName(playerClass);
                 string factionName = ExtractEnumName(playerFaction);
-
-                // Preserve name/regiment from OnPlayerJoined if we already have them
-                string playerName = null;
-                string regimentTag = null;
-                ulong steamId = 0;
-                bool isBot = false;
-                
-                if (_players.TryGetValue(playerId, out PlayerData existingData))
+                if (!_players.TryGetValue(playerId, out PlayerData data))
                 {
-                    playerName = existingData.PlayerName;
-                    regimentTag = existingData.RegimentTag;
-                    steamId = existingData.SteamId;
-                    isBot = existingData.IsBot;
+                    data = new PlayerData { PlayerId = playerId };
+                    _players[playerId] = data;
                 }
 
-                _players[playerId] = new PlayerData
-                {
-                    PlayerId = playerId,
-                    PlayerName = playerName,
-                    RegimentTag = regimentTag,
-                    SteamId = steamId,
-                    IsBot = isBot,
-                    PlayerObject = playerObject,
-                    PlayerTransform = playerObject.transform,
-                    ClassName = className,
-                    FactionName = factionName,
-                    SpawnSectionId = spawnSectionId,
-                    UniformId = uniformId,
-                    LastKnownPosition = playerObject.transform.position,
-                    LastUpdateTime = Time.time
-                };
+                data.ClassName = className;
+                data.FactionName = factionName;
+                data.SpawnSectionId = spawnSectionId;
+                data.UniformId = uniformId;
+                data.LastUpdateTime = Time.time;
 
-                // Don't log - too spammy with 200+ players
+                bool hasBody = playerObject != null;
+                data.IsSpawned = true;
+                data.PlayerObject = hasBody ? playerObject : null;
+                data.PlayerTransform = hasBody ? playerObject.transform : null;
+                data.LastKnownPosition = hasBody ? playerObject.transform.position : Vector3.zero;
+                if (!hasBody)
+                    data.LastKnownYaw = 0f;
             }
             catch (Exception ex)
             {
@@ -373,9 +354,7 @@ namespace AdvancedAdminUI.Utils
             // Features will handle cleanup of their own tracking
             if (_players.TryGetValue(victimPlayerId, out PlayerData playerData))
             {
-                // Mark the GameObject as null to indicate they're dead, but keep the entry
-                playerData.PlayerObject = null;
-                playerData.PlayerTransform = null;
+                ClearSpawn(playerData);
             }
         }
         
@@ -384,7 +363,7 @@ namespace AdvancedAdminUI.Utils
         /// </summary>
         private static void OnPlayerLeft(int playerId)
         {
-            if (_players.TryRemove(playerId, out PlayerData removedData))
+            if (_players.TryRemove(playerId, out _))
             {
                 if (HoldfastScriptMod.IsRCLoggedIn())
                     AdvancedAdminUIMod.Log.LogInfo($"[PlayerTracker] Player left: Id={playerId}");
@@ -396,14 +375,46 @@ namespace AdvancedAdminUI.Utils
         /// Players may have left during round rotation without OnPlayerLeft being called
         /// OnPlayerJoined and OnPlayerSpawned will rebuild the player list from scratch
         /// </summary>
+        static void OnRoundEnd(FactionCountry faction, FactionRoundWinnerReason reason)
+        {
+            EndRoundSpawns();
+        }
+
+        static void OnRoundEndPlayer(int playerId)
+        {
+            EndRoundSpawns();
+        }
+
+        static void EndRoundSpawns()
+        {
+            foreach (PlayerData data in _players.Values)
+                ClearSpawn(data);
+            _pendingGameObjectSearches.Clear();
+        }
+
+        static void ClearSpawn(PlayerData data)
+        {
+            if (data == null)
+                return;
+            data.IsSpawned = false;
+            data.PlayerObject = null;
+            data.PlayerTransform = null;
+            data.LastKnownPosition = Vector3.zero;
+            data.LastKnownYaw = 0f;
+            data.FactionName = null;
+            data.ClassName = null;
+        }
+
         private static void OnRoundDetails(int roundId, string serverName, string mapName, FactionCountry attackingFaction, FactionCountry defendingFaction, GameplayMode gameplayMode, GameType gameType)
         {
+            if (roundId < 0 || string.IsNullOrEmpty(mapName))
+                return;
+
             int previousCount = _players.Count;
             if (HoldfastScriptMod.IsRCLoggedIn())
-                AdvancedAdminUIMod.Log.LogInfo($"[PlayerTracker] New round detected! Clearing {previousCount} players");
-            
-            // Clear everything - players may have left during rotation without OnPlayerLeft
-            _players.Clear();
+                AdvancedAdminUIMod.Log.LogInfo($"[PlayerTracker] New round detected. Clearing spawns for {previousCount} players");
+
+            EndRoundSpawns();
             
             // Also trigger global cleanup to remove any stale visual GameObjects
             TriggerGlobalCleanup();
@@ -464,6 +475,7 @@ namespace AdvancedAdminUI.Utils
         }
 
 
+        private static readonly List<int> _removeIds = new(8);
         private static int _lastPlayerCount = 0;
         private static float _lastCleanupCheck = 0f;
         private const float CLEANUP_CHECK_INTERVAL = 1.0f; // Check every second
@@ -473,6 +485,9 @@ namespace AdvancedAdminUI.Utils
         
         public static void Update()
         {
+            // The local player is sampled every frame. Everyone else stays on the slow interval.
+            UpdateLocalPose();
+
             // PERFORMANCE: Only update positions periodically, not every frame
             // With 300 players, updating every frame causes lag
             if (Time.time - _lastPositionUpdateTime < POSITION_UPDATE_INTERVAL)
@@ -481,8 +496,7 @@ namespace AdvancedAdminUI.Utils
             _lastPositionUpdateTime = Time.time;
             
             // Update positions of tracked players
-            // Use snapshot to avoid modification during enumeration
-            List<int> toRemove = new List<int>();
+            _removeIds.Clear();
             
             foreach (var kvp in _players)
             {
@@ -491,10 +505,9 @@ namespace AdvancedAdminUI.Utils
                     PlayerData data = kvp.Value;
                     // Only update position if player has a GameObject (is alive and spawned)
                     // Dead players (null GameObject) are kept tracked until OnPlayerLeft
-                    if (data?.PlayerObject == null || data.PlayerTransform == null)
+                    if (data == null || !data.IsSpawned || data.PlayerObject == null || data.PlayerTransform == null)
                     {
-                        // Don't remove - player is dead but ID is still tracked
-                        // They will be removed when OnPlayerLeft is called
+                        // Dead or between rounds. The next spawn fills the body again.
                         continue;
                     }
 
@@ -507,13 +520,13 @@ namespace AdvancedAdminUI.Utils
                     // Only remove on error if GameObject is also null (truly invalid entry)
                     if (kvp.Value?.PlayerObject == null)
                     {
-                        toRemove.Add(kvp.Key);
+                        _removeIds.Add(kvp.Key);
                     }
                 }
             }
 
             // Remove invalid entries
-            foreach (int id in toRemove)
+            foreach (int id in _removeIds)
             {
                 _players.TryRemove(id, out _);
             }
@@ -536,6 +549,32 @@ namespace AdvancedAdminUI.Utils
                 }
                 
                 _lastPlayerCount = currentPlayerCount;
+            }
+        }
+
+        static void UpdateLocalPose()
+        {
+            int localId = GameEventBridge.GetLocalPlayerId();
+            if (localId < 0)
+                return;
+            if (!_players.TryGetValue(localId, out PlayerData data))
+                return;
+            if (data == null || !data.IsSpawned || data.PlayerTransform == null)
+                return;
+
+            try
+            {
+                data.LastKnownPosition = data.PlayerTransform.position;
+                data.LastUpdateTime = Time.time;
+                float yaw = data.PlayerTransform.eulerAngles.y;
+                Camera view = Camera.main;
+                if (view != null)
+                    yaw = view.transform.eulerAngles.y;
+                data.LastKnownYaw = yaw;
+            }
+            catch
+            {
+                // The player object was destroyed. The next spawn fills the transform again.
             }
         }
         
@@ -573,7 +612,7 @@ namespace AdvancedAdminUI.Utils
 
         public static List<PlayerData> GetPlayersByClass(string className)
         {
-            List<PlayerData> result = new List<PlayerData>();
+            List<PlayerData> result = [];
             foreach (var kvp in _players)
             {
                 try
@@ -599,8 +638,8 @@ namespace AdvancedAdminUI.Utils
         
         // PERFORMANCE: Throttle expensive GameObject searches
         private static float _lastGameObjectSearchTime = 0f;
-        private static float _gameObjectSearchCooldown = 2.0f; // Only search every 2 seconds max
-        private static HashSet<int> _pendingGameObjectSearches = new HashSet<int>();
+        private static readonly float _gameObjectSearchCooldown = 2.0f; // Only search every 2 seconds max
+        private static readonly HashSet<int> _pendingGameObjectSearches = [];
         
         /// <summary>
         /// Update player position from OnPlayerPacket (IHoldfastSharedMethods3)
@@ -611,15 +650,16 @@ namespace AdvancedAdminUI.Utils
         {
             if (_players.TryGetValue(playerId, out PlayerData existingData))
             {
-                // Update existing player's position - fast path
+                if (!existingData.IsSpawned)
+                    return;
+
                 existingData.LastKnownPosition = position;
+                existingData.LastKnownYaw = rotation.y;
                 existingData.LastUpdateTime = Time.time;
                 
                 // Queue for GameObject search if we don't have it (don't search immediately)
                 if (existingData.PlayerObject == null)
-                {
                     _pendingGameObjectSearches.Add(playerId);
-                }
             }
             else
             {
@@ -633,19 +673,17 @@ namespace AdvancedAdminUI.Utils
                     IsBot = false,
                     PlayerObject = null,
                     PlayerTransform = null,
-                    ClassName = "Unknown",
-                    FactionName = "Unknown",
+                    ClassName = null,
+                    FactionName = null,
                     SpawnSectionId = 0,
                     UniformId = 0,
-                    LastKnownPosition = position,
-                    LastUpdateTime = Time.time
+                    LastKnownPosition = Vector3.zero,
+                    LastKnownYaw = 0f,
+                    LastUpdateTime = Time.time,
+                    IsSpawned = false
                 };
                 
-                if (_players.TryAdd(playerId, newData))
-                {
-                    // Queue for GameObject search (don't search immediately - expensive!)
-                    _pendingGameObjectSearches.Add(playerId);
-                }
+                _players.TryAdd(playerId, newData);
             }
         }
         
@@ -669,15 +707,18 @@ namespace AdvancedAdminUI.Utils
             
             try
             {
-                // Do ONE expensive search for ALL pending players
-                GameObject[] allObjects = UnityEngine.Object.FindObjectsOfType<GameObject>();
+                // Character controllers are the player bodies. Scanning every GameObject hitches the frame.
+                CharacterController[] bodies = UnityEngine.Object.FindObjectsOfType<CharacterController>();
                 
                 // Build a quick lookup of player IDs we're searching for
                 var searchingFor = new HashSet<int>(_pendingGameObjectSearches);
                 _pendingGameObjectSearches.Clear();
                 
-                foreach (var obj in allObjects)
+                foreach (var body in bodies)
                 {
+                    if (body == null)
+                        continue;
+                    GameObject obj = body.gameObject;
                     if (obj == null || obj.name == null)
                         continue;
                     
@@ -698,15 +739,10 @@ namespace AdvancedAdminUI.Utils
                     // Check if this is a player we're looking for
                     if (searchingFor.Contains(playerId) && _players.TryGetValue(playerId, out PlayerData data))
                     {
-                        if (data.PlayerObject == null)
+                        if (data.IsSpawned && data.PlayerObject == null)
                         {
                             data.PlayerObject = obj;
                             data.PlayerTransform = obj.transform;
-                            
-                            // Try to extract class/faction info
-                            TryExtractPlayerInfo(obj, out string className, out string factionName);
-                            if (className != "Unknown") data.ClassName = className;
-                            if (factionName != "Unknown") data.FactionName = factionName;
                         }
                         searchingFor.Remove(playerId);
                     }

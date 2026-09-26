@@ -67,13 +67,14 @@ namespace LauncherCoreMod
     /// - Game event dispatching via IHoldfastSharedMethods (for other mods to subscribe to)
     /// - Master login verification
     /// </summary>
-    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.13")]
+    [BepInPlugin("com.xarkanoth.launchercoremod", "Launcher Core Mod", "1.0.15")]
     public class LauncherCoreModPlugin : BaseUnityPlugin
     {
         public static ManualLogSource Log { get; private set; }
         public static LauncherCoreModPlugin Instance { get; private set; }
         
         private ServerBrowserFilter _serverBrowserFilter;
+        private WorkshopMapLoadFix _workshopMapLoadFix;
         private GameEventDispatcher _eventDispatcher;
         private GameObject _runnerObject;
         private bool _runnerCreated = false;
@@ -87,6 +88,9 @@ namespace LauncherCoreMod
             // Initialize server browser filter (doesn't need MonoBehaviour)
             _serverBrowserFilter = new ServerBrowserFilter();
             _serverBrowserFilter.Initialize();
+            
+            _workshopMapLoadFix = new WorkshopMapLoadFix();
+            _workshopMapLoadFix.Initialize();
             
             // Initialize game event dispatcher
             _eventDispatcher = new GameEventDispatcher();
@@ -194,6 +198,7 @@ namespace LauncherCoreMod
         {
             SceneManager.sceneLoaded -= OnSceneLoaded;
             _serverBrowserFilter?.Shutdown();
+            _workshopMapLoadFix?.Shutdown();
         }
     }
     
@@ -269,6 +274,9 @@ namespace LauncherCoreMod
         
         /// <summary>Fired when a player blocks an attack. Args: attackingPlayerId, defendingPlayerId</summary>
         public static event Action<int, int> OnPlayerBlock;
+
+        /// <summary>Fired for one shot path. Args: playerId, originX, originZ, hitX, hitZ</summary>
+        public static event Action<int, float, float, float, float> OnMapShot;
         
         // ==========================================
         // INTERNAL DISPATCH METHODS (called by GameEventDispatcher)
@@ -300,6 +308,8 @@ namespace LauncherCoreMod
             => OnPlayerHurt?.Invoke(playerId, oldHp, newHp, reason);
         internal static void RaisePlayerBlock(int attackingPlayerId, int defendingPlayerId)
             => OnPlayerBlock?.Invoke(attackingPlayerId, defendingPlayerId);
+        internal static void RaiseMapShot(int playerId, float ox, float oz, float hx, float hz)
+            => OnMapShot?.Invoke(playerId, ox, oz, hx, hz);
     }
     
     /// <summary>
@@ -817,7 +827,70 @@ namespace LauncherCoreMod
         public void OnPlayerHurt(int playerId, byte oldHp, byte newHp, EntityHealthChangedReason reason) { GameEvents.RaisePlayerHurt(playerId, oldHp, newHp, reason); }
         public void OnScorableAction(int playerId, int score, ScorableActionType reason) { }
         public void OnPlayerShoot(int playerId, bool dryShot) { }
-        public void OnShotInfo(int playerId, int shotCount, Vector3[][] shotsPointsPositions, float[] trajectileDistances, float[] distanceFromFiringPositions, float[] horizontalDeviationAngles, float[] maxHorizontalDeviationAngles, float[] muzzleVelocities, float[] gravities, float[] damageHitBaseDamages, float[] damageRangeUnitValues, float[] damagePostTraitAndBuffValues, float[] totalDamages, Vector3[] hitPositions, Vector3[] hitDirections, int[] hitPlayerIds, int[] hitDamageableObjectIds, int[] hitShipIds, int[] hitVehicleIds) { }
+        public void OnShotInfo(int playerId, int shotCount, Vector3[][] shotsPointsPositions, float[] trajectileDistances, float[] distanceFromFiringPositions, float[] horizontalDeviationAngles, float[] maxHorizontalDeviationAngles, float[] muzzleVelocities, float[] gravities, float[] damageHitBaseDamages, float[] damageRangeUnitValues, float[] damagePostTraitAndBuffValues, float[] totalDamages, Vector3[] hitPositions, Vector3[] hitDirections, int[] hitPlayerIds, int[] hitDamageableObjectIds, int[] hitShipIds, int[] hitVehicleIds)
+        {
+            try
+            {
+                int n = shotCount < 1 ? 1 : shotCount;
+                if (n > 12) n = 12;
+                for (int i = 0; i < n; i++)
+                {
+                    float ox;
+                    float oz;
+                    float hx;
+                    float hz;
+                    if (!ShotEnds(shotsPointsPositions, hitPositions, i, out ox, out oz, out hx, out hz))
+                        continue;
+                    GameEvents.RaiseMapShot(playerId, ox, oz, hx, hz);
+                }
+            }
+            catch (Exception ex)
+            {
+                LauncherCoreModPlugin.Log?.LogWarning($"[GameEvents] OnShotInfo failed: {ex.Message}");
+            }
+        }
+
+        static bool ShotEnds(Vector3[][] paths, Vector3[] hits, int index, out float ox, out float oz, out float hx, out float hz)
+        {
+            ox = 0f;
+            oz = 0f;
+            hx = 0f;
+            hz = 0f;
+            if (!PathPoint(paths, index, false, out ox, out oz))
+                return false;
+            if (HitPoint(hits, index, out hx, out hz))
+                return true;
+            return PathPoint(paths, index, true, out hx, out hz);
+        }
+
+        static bool PathPoint(Vector3[][] paths, int index, bool last, out float x, out float z)
+        {
+            x = 0f;
+            z = 0f;
+            if (paths == null || index < 0 || index >= paths.Length)
+                return false;
+            Vector3[] path = paths[index];
+            if (path == null || path.Length == 0)
+                return false;
+            Vector3 p = last ? path[path.Length - 1] : path[0];
+            x = p.x;
+            z = p.z;
+            return true;
+        }
+
+        static bool HitPoint(Vector3[] hits, int index, out float x, out float z)
+        {
+            x = 0f;
+            z = 0f;
+            if (hits == null || index < 0 || index >= hits.Length)
+                return false;
+            Vector3 p = hits[index];
+            if (p.x * p.x + p.y * p.y + p.z * p.z < 0.0001f)
+                return false;
+            x = p.x;
+            z = p.z;
+            return true;
+        }
         public void OnPlayerBlock(int attackingPlayerId, int defendingPlayerId) { GameEvents.RaisePlayerBlock(attackingPlayerId, defendingPlayerId); }
         public void OnPlayerMeleeStartSecondaryAttack(int playerId) { GameEvents.RaisePlayerMeleeStartSecondaryAttack(playerId); }
         public void OnPlayerWeaponSwitch(int playerId, string weapon) { }

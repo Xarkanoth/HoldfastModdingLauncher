@@ -25,6 +25,9 @@ namespace HoldfastModdingLauncher
         
         // Store remote mod info for updates
         private readonly Dictionary<string, RemoteModInfo> _remoteModInfo = new();
+        private readonly System.Windows.Forms.Timer _liveUpdateTimer = new();
+        private bool _liveUpdateBusy;
+        private string _promptedLauncherVersion;
         
         private Button _playButton;
         private Button _settingsButton;
@@ -68,7 +71,6 @@ namespace HoldfastModdingLauncher
         private readonly Color DarkBg = Theme.PageBg;
         private readonly Color DarkPanel = Theme.Panel;
         private readonly Color AccentCyan = Theme.Brand;
-        private readonly Color AccentMagenta = Theme.Umber;
         private readonly Color TextLight = Theme.Text;
         private readonly Color TextGray = Theme.TextMuted;
         private readonly Color SuccessGreen = Theme.Success;
@@ -105,7 +107,32 @@ namespace HoldfastModdingLauncher
             CheckSetup();
             
             // Check for updates on startup (if enabled)
-            CheckForUpdatesAsync();
+            _ = CheckForUpdatesAsync();
+            _liveUpdateTimer.Interval = 60_000;
+            _liveUpdateTimer.Tick += LiveUpdateTimer_Tick;
+            _liveUpdateTimer.Start();
+            FormClosed += (_, _) => _liveUpdateTimer.Stop();
+        }
+
+        private async void LiveUpdateTimer_Tick(object sender, EventArgs e)
+        {
+            if (_liveUpdateBusy || IsDisposed) return;
+            _liveUpdateBusy = true;
+            try
+            {
+                var mods = _modManager.DiscoverMods();
+                if (mods != null && mods.Count > 0 && _modsPanel != null && _modsPanel.Controls.Count > 0)
+                    await CheckForModUpdatesAsync(mods);
+                await CheckForUpdatesAsync();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning($"Live update check failed: {ex.Message}");
+            }
+            finally
+            {
+                _liveUpdateBusy = false;
+            }
         }
 
         private void InitializeComponent()
@@ -1154,7 +1181,7 @@ namespace HoldfastModdingLauncher
         /// <summary>
         /// Verifies a token is valid for this machine
         /// </summary>
-        private bool VerifySecureToken(string token)
+        private static bool VerifySecureToken(string token)
         {
             // Generate what the token should be for today
             string expectedToken = CreateSecureToken();
@@ -1850,9 +1877,9 @@ namespace HoldfastModdingLauncher
                     {
                         Location = new Point(rowWidth - 56, 16),
                         Tag = mod.FileName,
-                        BackColor = Theme.PageBg
+                        BackColor = Theme.PageBg,
+                        Checked = _modManager.IsCoreMod(mod.FileName) || mod.Enabled
                     };
-                    toggle.Checked = _modManager.IsCoreMod(mod.FileName) || mod.Enabled;
                     if (_modManager.IsCoreMod(mod.FileName))
                         toggle.Enabled = false;
                     else
@@ -2119,19 +2146,6 @@ namespace HoldfastModdingLauncher
             }
         }
 
-        private static string FormatFileSize(long bytes)
-        {
-            string[] sizes = { "B", "KB", "MB", "GB" };
-            double len = bytes;
-            int order = 0;
-            while (len >= 1024 && order < sizes.Length - 1)
-            {
-                order++;
-                len /= 1024;
-            }
-            return $"{len:0.##} {sizes[order]}";
-        }
-
         private void StretchModRows()
         {
             LayoutModRows();
@@ -2163,10 +2177,7 @@ namespace HoldfastModdingLauncher
                         name.Size = new Size(Math.Max(80, width - 76), 20);
                 }
 
-                if (updateButton != null)
-                {
-                    updateButton.SetBounds(12, 56, Math.Max(88, width - 24), 44);
-                }
+                updateButton?.SetBounds(12, 56, Math.Max(88, width - 24), 44);
 
                 y += height;
             }
@@ -2233,7 +2244,7 @@ namespace HoldfastModdingLauncher
             }
         }
         
-        private async void CheckForUpdatesAsync()
+        private async Task CheckForUpdatesAsync()
         {
             try
             {
@@ -2256,6 +2267,10 @@ namespace HoldfastModdingLauncher
                         Logger.LogInfo($"Skipping update v{updateInfo.LatestVersion} (user skipped)");
                         return;
                     }
+
+                    if (updateInfo.LatestVersion == _promptedLauncherVersion)
+                        return;
+                    _promptedLauncherVersion = updateInfo.LatestVersion;
                     
                     Logger.LogInfo($"Update available: v{updateInfo.CurrentVersion} -> v{updateInfo.LatestVersion}");
                     
