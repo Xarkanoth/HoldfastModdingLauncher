@@ -72,7 +72,7 @@
             "dllName": "MapCapture.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.2.0 - Menu list of official maps, with re-export. Shared textures are stored by image contents.",
+            "changelog": "v1.2.8 - Photographs the terrain at 4096 and the sky as a panorama. Keeps tree trunks that sit outside LOD groups. Reads Better Lit tints and dumps TVE grass settings to materials.json. Water alpha, height 512, bigger mesh and grass caps. v1.2.7 keeps every texture.",
             "dependencies": [],
             "isEnabled": true
         }
