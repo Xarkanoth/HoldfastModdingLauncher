@@ -72,7 +72,7 @@
             "dllName": "MapCapture.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.2.9 - Hides the main menu while exporting so the soldier and menu props stay out of the map. Terrain photo uses the real sun. Records windmill spin and fire particles. v1.2.8 added the panorama and terrain photo.",
+            "changelog": "v1.2.10 - Also hides Backgroundscene_Final, the main menu town, so those buildings stay out of the map. v1.2.9 hides MainMenuScene and lights the terrain photo with the real sun.",
             "dependencies": [],
             "isEnabled": true
         }
