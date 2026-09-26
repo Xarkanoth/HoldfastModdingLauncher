@@ -24,6 +24,10 @@ Do not run `build-mod.ps1` or `publish-mod.ps1` to bump. Those scripts increment
 
 Build Release with `dotnet build`. Confirm the DLL assembly version. Public mods go to `Xarkanoth/HoldfastMods`. Private mods go to `Xarkanoth/HoldfastPrivateMods`.
 
+MapCapture is private. Tag `MapCapture-vX.Y.Z`, asset `MapCapture.dll`, repo `Xarkanoth/HoldfastPrivateMods`.
+
+Copying the DLL into the game plugins folder is not the release. The turn is not done until `gh release create` has succeeded and `mod-registry.json` is pushed.
+
 ```powershell
 gh release create AdvancedAdminUI-v1.0.74 AdvancedAdminUI.dll `
   --repo Xarkanoth/HoldfastMods `

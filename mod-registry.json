@@ -72,7 +72,7 @@
             "dllName": "MapCapture.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.2.15 - The terrain photo is taken on a real frame, so the game's colour grade is the picture that gets saved. Camera.Render() was finishing before that grade was written, which is why the file stayed dark. If the graded shot is empty, the plain photo is saved instead.",
+            "changelog": "v1.2.16 - Colour maps for props and rocks are saved larger. The old size cut a shared rock atlas down so far that each stone was a small blurry square.",
             "dependencies": [],
             "isEnabled": true
         }
