@@ -72,7 +72,7 @@
             "dllName": "MapCapture.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.2.11 - A menu export hides every scene that was open before the map loaded (menu, background town, soldier, screen wipe), so none of it lands in the map. Windmill spin is measured on the turning parent. Meshes up to 320k vertices are kept. v1.2.10 missed the background town because of its capital S.",
+            "changelog": "v1.2.12 - Keeps the menu sun for the capture, and takes the water height from the biggest water surface instead of the first prop. v1.2.11 hid the menu scenes but flattened the height map and turned the sun off.",
             "dependencies": [],
             "isEnabled": true
         }
