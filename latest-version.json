@@ -1,6 +1,6 @@
 {
-  "version": "2.0.1",
-  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v2.0.1/HoldfastModdingLauncher-v2.0.1.zip",
-  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v2.0.1",
-  "releaseNotes": "Mods sit in a full-height sidebar with switches. Dialogs center on the launcher. Vertical scrollbar matches the theme."
+  "version": "2.0.2",
+  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v2.0.2/HoldfastModdingLauncher-v2.0.2.zip",
+  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v2.0.2",
+  "releaseNotes": "Enabled mods sit at the top of the list. Mods with an update sit above those."
 }

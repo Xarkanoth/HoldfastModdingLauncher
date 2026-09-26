@@ -1809,7 +1809,10 @@ namespace HoldfastModdingLauncher
                 _modToggles.Clear();
                 _modManifests.Clear();
 
-                var mods = _modManager.DiscoverMods();
+                var mods = _modManager.DiscoverMods()
+                    .OrderByDescending(m => m.Enabled)
+                    .ThenBy(m => ModSortName(m), StringComparer.OrdinalIgnoreCase)
+                    .ToList();
 
                 if (mods.Count == 0)
                 {
@@ -2038,7 +2041,7 @@ namespace HoldfastModdingLauncher
                             }
                         }
                     }
-                    LayoutModRows();
+                    SortModRows();
                 });
             }
             catch (Exception ex)
@@ -2151,6 +2154,69 @@ namespace HoldfastModdingLauncher
             LayoutModRows();
         }
 
+        private static string ModSortName(ModInfo mod)
+        {
+            if (!string.IsNullOrEmpty(mod.DisplayName))
+                return mod.DisplayName;
+            return Path.GetFileNameWithoutExtension(mod.FileName);
+        }
+
+        private void SortModRows()
+        {
+            if (_modsPanel == null) return;
+
+            var rows = new List<Panel>();
+            foreach (Control ctrl in _modsPanel.Controls)
+            {
+                if (ctrl is Panel row && row.Tag is string)
+                    rows.Add(row);
+            }
+
+            rows.Sort(CompareModRows);
+            for (int i = 0; i < rows.Count; i++)
+                _modsPanel.Controls.SetChildIndex(rows[i], i);
+
+            LayoutModRows();
+        }
+
+        private static int CompareModRows(Panel a, Panel b)
+        {
+            int rank = ModRowRank(a).CompareTo(ModRowRank(b));
+            if (rank != 0)
+                return rank;
+
+            int name = string.Compare(ModRowTitle(a), ModRowTitle(b), StringComparison.OrdinalIgnoreCase);
+            if (name != 0)
+                return name;
+
+            return string.Compare(a.Tag as string, b.Tag as string, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static int ModRowRank(Panel row)
+        {
+            var updateButton = row.Controls.OfType<Button>()
+                .FirstOrDefault(b => b.Name != null && b.Name.StartsWith("updateBtn_"));
+            if (updateButton != null && updateButton.Visible)
+                return 0;
+
+            var toggle = row.Controls.OfType<ThemeToggle>().FirstOrDefault();
+            if (toggle != null && toggle.Checked)
+                return 1;
+
+            return 2;
+        }
+
+        private static string ModRowTitle(Panel row)
+        {
+            foreach (Control child in row.Controls)
+            {
+                if (child is Label name && name.Font.Bold && name.Tag is string)
+                    return name.Text ?? "";
+            }
+
+            return row.Tag as string ?? "";
+        }
+
         private void LayoutModRows()
         {
             if (_modsPanel == null) return;
@@ -2197,6 +2263,7 @@ namespace HoldfastModdingLauncher
 
             _modManager.SetModEnabled(fileName, toggle.Checked);
             UpdateModCountStatus();
+            SortModRows();
         }
         
         private void UpdateModCountStatus()
