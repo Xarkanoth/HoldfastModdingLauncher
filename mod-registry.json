@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.72 - Faction colors on the admin map stay apart. Frontline sides no longer all draw as one grey, and a late scan no longer paints everyone as the attacking faction. France and Prussia, Russia and Italy, and the white-coat nations no longer share a hue.",
+            "changelog": "v1.0.73 - The admin map photo turns off Post Processing Global Volume first, so fog does not wash out the terrain. The map eases in on where players are spawned and keeps a gap between them and the edge. Scroll or right-drag takes over. Middle-click follows them again.",
             "dependencies": [],
             "isEnabled": true
         },
