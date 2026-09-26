@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.73 - The admin map photo turns off Post Processing Global Volume first, so fog does not wash out the terrain. The map eases in on where players are spawned and keeps a gap between them and the edge. Scroll or right-drag takes over. Middle-click follows them again.",
+            "changelog": "v1.0.74 - The admin map uses the real Holdfast factions. Kingdom of Prussia, Italy, and Spain are no longer drawn as British, and American Loyalists are no longer labeled United States.",
             "dependencies": [],
             "isEnabled": true
         },

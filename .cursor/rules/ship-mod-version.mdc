@@ -1,0 +1,38 @@
+---
+description: Ship a new Holdfast mod version in the same turn as a player-visible change
+alwaysApply: true
+---
+
+# Ship a Holdfast mod version
+
+A change a player or admin can see is not done until a new patch is released. Do this in the same turn. Do not wait to be asked. Do not stop after editing source.
+
+The downloadable version is the GitHub release, not the files on disk. This repo ignores source. `mod-registry.json` is only the note.
+
+## Set one new patch
+
+Bump the patch on the live release (`1.0.73` becomes `1.0.74`). Write that same number in all of these:
+
+- `ModVersions.json` for that mod
+- the mod `.csproj`: `Version`, `AssemblyVersion`, `FileVersion` (`FileVersion` ends in `.0`)
+- `[BepInPlugin(..., "x.y.z")]` and the startup log line
+- `mod-registry.json` `changelog`, starting with `vX.Y.Z - `
+
+Do not run `build-mod.ps1` or `publish-mod.ps1` to bump. Those scripts increment `ModVersions.json` again, so a version you already set becomes one higher.
+
+## Release it
+
+Build Release with `dotnet build`. Confirm the DLL assembly version. Public mods go to `Xarkanoth/HoldfastMods`. Private mods go to `Xarkanoth/HoldfastPrivateMods`.
+
+```powershell
+gh release create AdvancedAdminUI-v1.0.74 AdvancedAdminUI.dll `
+  --repo Xarkanoth/HoldfastMods `
+  --title "Advanced Admin UI v1.0.74" `
+  --notes "One plain sentence about what the player sees."
+```
+
+The DLL path is the mod folder's `OutputPath` (usually the Mods root). Notes are the changelog sentence without the `vX.Y.Z - ` prefix.
+
+Commit and push `mod-registry.json` on this repo. Leave source untracked.
+
+Skip the release only when the user says not to publish.

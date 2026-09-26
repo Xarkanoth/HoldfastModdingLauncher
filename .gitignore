@@ -6,6 +6,9 @@
 !README.md
 !mod-registry.json
 !latest-version.json
+!.cursor/
+!.cursor/rules/
+!.cursor/rules/*.mdc
 
 # GitHub releases handle actual distribution
 # Source code stays local for development
