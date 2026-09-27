@@ -72,7 +72,7 @@
             "dllName": "MapCapture.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.2.18 - The map list can export every map, or only maps that are not exported yet. Each map loads, exports, is checked, unloads, then waits 5 seconds.",
+            "changelog": "v1.2.19 - Menu exports no longer throw a missing-client error while each map loads.",
             "dependencies": [],
             "isEnabled": true
         }
