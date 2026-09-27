@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.76 - No change to the admin tools. Unused startup code was removed so the editor stops flagging Unity methods.",
+            "changelog": "v1.0.77 - The minimap on Al Uddin Ruins stays on the battlefield instead of sitting far down and to the right.",
             "dependencies": [],
             "isEnabled": true
         },
