@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.77 - The minimap on Al Uddin Ruins stays on the battlefield instead of sitting far down and to the right.",
+            "changelog": "v1.0.78 - The minimap on Al Uddin Ruins stays on the battlefield instead of sitting far down and to the right.",
             "dependencies": [],
             "isEnabled": true
         },
