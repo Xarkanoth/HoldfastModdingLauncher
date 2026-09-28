@@ -72,7 +72,7 @@
             "dllName": "MapCapture.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.2.20 - Overhead photos are saved at 2K, 4K, and 8K from the map size, and material textures are no longer dropped after a pixel total.",
+            "changelog": "v1.2.21 - Maps with the KWS sea export that ocean as a surface at the water level.",
             "dependencies": [],
             "isEnabled": true
         }
