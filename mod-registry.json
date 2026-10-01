@@ -72,7 +72,7 @@
             "dllName": "MapCapture.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.2.21 - Maps with the KWS sea export that ocean as a surface at the water level.",
+            "changelog": "v1.2.22 - The overhead map picture leaves spawn boxes out, the same as the 3D view.",
             "dependencies": [],
             "isEnabled": true
         }
