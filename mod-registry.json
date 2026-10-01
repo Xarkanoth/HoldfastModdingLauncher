@@ -72,7 +72,7 @@
             "dllName": "MapCapture.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.2.22 - The overhead map picture leaves spawn boxes out, the same as the 3D view.",
+            "changelog": "v1.2.23 - An ocean map's overhead picture stays in daylight instead of coming out black.",
             "dependencies": [],
             "isEnabled": true
         }
