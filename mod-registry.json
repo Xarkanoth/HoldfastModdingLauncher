@@ -1,6 +1,6 @@
 {
     "schemaVersion": "2.0",
-    "lastUpdated": "2026-02-15T00:00:00Z",
+    "lastUpdated": "2026-10-02T00:00:00Z",
     "registryUrl": "https://raw.githubusercontent.com/Xarkanoth/HoldfastModdingLauncher/main/mod-registry.json",
     "modsBaseUrl": "https://raw.githubusercontent.com/Xarkanoth/HoldfastMods/main",
     "releasesBaseUrl": "https://github.com/Xarkanoth/HoldfastMods/releases/download",
@@ -73,6 +73,23 @@
             "iconUrl": "",
             "screenshots": [],
             "changelog": "v1.2.23 - An ocean map's overhead picture stays in daylight instead of coming out black.",
+            "dependencies": [],
+            "isEnabled": true
+        },
+        {
+            "id": "ChestContents",
+            "name": "Chest Contents",
+            "description": "Point at an ammo chest, ammo box, weapon rack, or supply box to see what is inside and how many are left.",
+            "author": "Xarkanoth",
+            "minLauncherVersion": "1.0.80",
+            "requirements": "",
+            "category": "Gameplay",
+            "tags": ["chest", "ammo", "storage", "tooltip"],
+            "repositoryUrl": "https://github.com/Xarkanoth/HoldfastMods",
+            "dllName": "ChestContents.dll",
+            "iconUrl": "",
+            "screenshots": [],
+            "changelog": "v1.0.0 - Point at an ammo chest, ammo box, weapon rack, or supply box to see what is inside and how many are left.",
             "dependencies": [],
             "isEnabled": true
         }
