@@ -72,7 +72,7 @@
             "dllName": "MapCapture.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.2.23 - An ocean map's overhead picture stays in daylight instead of coming out black.",
+            "changelog": "v1.2.24 - The top-down map picture is always the highest resolution this PC can save.",
             "dependencies": [],
             "isEnabled": true
         }
