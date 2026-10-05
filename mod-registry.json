@@ -72,7 +72,7 @@
             "dllName": "MapCapture.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.2.24 - The top-down map picture is always the highest resolution this PC can save.",
+            "changelog": "v1.2.25 - The overhead photo stays at 8192 so exporting a map no longer crashes the game.",
             "dependencies": [],
             "isEnabled": true
         }
