@@ -72,7 +72,7 @@
             "dllName": "MapCapture.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.2.26 - Overhead photos frame the playable cluster of map objects instead of empty background terrain.",
+            "changelog": "v1.2.27 - Overhead photos crop tighter around the playable object cluster (75% of objects, not 88%).",
             "dependencies": [],
             "isEnabled": true
         }
