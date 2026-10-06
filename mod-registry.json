@@ -72,7 +72,7 @@
             "dllName": "MapCapture.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.2.28 - Overhead photos ignore trees, rocks, water, and vegetation when framing the playable area.",
+            "changelog": "v1.2.29 - Grass keeps prefab size, and only fire or smoke particle systems are exported.",
             "dependencies": [],
             "isEnabled": true
         }
