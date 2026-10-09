@@ -1,6 +1,6 @@
 {
     "schemaVersion": "2.0",
-    "lastUpdated": "2026-02-15T00:00:00Z",
+    "lastUpdated": "2026-10-09T00:00:00Z",
     "registryUrl": "https://raw.githubusercontent.com/Xarkanoth/HoldfastModdingLauncher/main/mod-registry.json",
     "modsBaseUrl": "https://raw.githubusercontent.com/Xarkanoth/HoldfastMods/main",
     "releasesBaseUrl": "https://github.com/Xarkanoth/HoldfastMods/releases/download",
@@ -11,17 +11,17 @@
         {
             "id": "AdvancedAdminUI",
             "name": "Advanced Admin UI",
-            "description": "A comprehensive client-side admin tool suite for Holdfast: Nations at War. Features include Cavalry Visualization, Rambo Indicator, AFK Indicator, Minimap, and Admin UI.",
+            "description": "Overhead map for Holdfast admins. Press F3 after RC login. Player dots sit on the same ground as the photo.",
             "author": "Xarkanoth",
             "minLauncherVersion": "1.0.80",
             "requirements": "Requires RC login to use.",
             "category": "Admin Tools",
-            "tags": ["admin", "minimap", "visualization", "cavalry", "afk"],
+            "tags": ["admin", "map"],
             "repositoryUrl": "https://github.com/Xarkanoth/HoldfastMods",
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.78 - The minimap on Al Uddin Ruins stays on the battlefield instead of sitting far down and to the right.",
+            "changelog": "v1.0.79 - F3 opens only the map. The overhead photo uses the exporter camera, cropped to the fight, and the dots sit on that same ground.",
             "dependencies": [],
             "isEnabled": true
         },
