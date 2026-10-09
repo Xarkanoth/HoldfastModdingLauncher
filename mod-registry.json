@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.79 - F3 opens only the map. The overhead photo uses the exporter camera, cropped to the fight, and the dots sit on that same ground.",
+            "changelog": "v1.0.80 - F3 opens only the map. The overhead photo uses the exporter camera, cropped to the fight, and the dots sit on that same ground.",
             "dependencies": [],
             "isEnabled": true
         },
