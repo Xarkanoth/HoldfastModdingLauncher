@@ -1,6 +1,6 @@
 {
     "schemaVersion": "2.0",
-    "lastUpdated": "2026-10-09T00:00:00Z",
+    "lastUpdated": "2026-10-19T00:00:00Z",
     "registryUrl": "https://raw.githubusercontent.com/Xarkanoth/HoldfastModdingLauncher/main/mod-registry.json",
     "modsBaseUrl": "https://raw.githubusercontent.com/Xarkanoth/HoldfastMods/main",
     "releasesBaseUrl": "https://github.com/Xarkanoth/HoldfastMods/releases/download",
@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.96 - The map is the photo, a bit see-through, with the side counts on it. Icons are smaller, and the freecam arrow points the way you are moving.",
+            "changelog": "v1.0.97 - Follow holds one zoom instead of bouncing, and a line on your dot shows where you are looking.",
             "dependencies": [],
             "isEnabled": true
         },
