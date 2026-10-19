@@ -11,7 +11,7 @@
         {
             "id": "AdvancedAdminUI",
             "name": "Advanced Admin UI",
-            "description": "Overhead map for Holdfast admins. Press F3 after RC login. Player dots sit on the same ground as the photo.",
+            "description": "Overhead map for Holdfast admins. Press your map key (F3 by default) after RC login. It slides in on the left and sits beside the P menu.",
             "author": "Xarkanoth",
             "minLauncherVersion": "1.0.80",
             "requirements": "Requires RC login to use.",
@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.81 - Player dots glide to the new spot instead of jumping. Your marker is a brighter gold ring with a longer facing line.",
+            "changelog": "v1.0.82 - The map slides in from the left inside the game. Your key is F3 unless you set another one, and the P menu shifts over to make room.",
             "dependencies": [],
             "isEnabled": true
         },

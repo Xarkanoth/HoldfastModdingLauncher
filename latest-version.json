@@ -1,6 +1,6 @@
 {
-  "version": "2.0.4",
-  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v2.0.4/HoldfastModdingLauncher-v2.0.4.zip",
-  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v2.0.4",
-  "releaseNotes": "Removed the Auto Block timing settings. The block is immediate again."
+  "version": "2.0.5",
+  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v2.0.5/HoldfastModdingLauncher-v2.0.5.zip",
+  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v2.0.5",
+  "releaseNotes": "Advanced Admin UI has a Settings button. Set the key that opens the map. Leave it blank to keep F3."
 }
