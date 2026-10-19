@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.90 - Press F6 to cycle marks on, freeflight only, or off. Labels show the state and the isolation and danger numbers.",
+            "changelog": "v1.0.91 - Marked players can glow through walls. Turn it on from Marks. It stays off until you do.",
             "dependencies": [],
             "isEnabled": true
         },
