@@ -11,7 +11,7 @@
         {
             "id": "AdvancedAdminUI",
             "name": "Advanced Admin UI",
-            "description": "Overhead map for Holdfast admins. Press your map key (F3 by default) after RC login. It slides in on the left and sits beside the P menu.",
+            "description": "Overhead map for Holdfast admins. Press your map key (F3 by default) after RC login. The map sits at the top left. Its buttons are on the P menu.",
             "author": "Xarkanoth",
             "minLauncherVersion": "1.0.80",
             "requirements": "Requires RC login to use.",
@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.93 - Marked players and flags show on the game minimap. Flags stay off until you turn them on.",
+            "changelog": "v1.0.94 - The map sits at the top left and keeps the whole battlefield in frame. Follow, whole map, and the player buttons are on the P menu. Marks clear when that player dies.",
             "dependencies": [],
             "isEnabled": true
         },
