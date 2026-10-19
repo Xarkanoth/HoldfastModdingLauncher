@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.87 - The map sits on top of the other panels. The mouse unlocks while it is open, and the P menu stays on screen beside it.",
+            "changelog": "v1.0.88 - The map stays full height when the P menu is open, with a gap between them.",
             "dependencies": [],
             "isEnabled": true
         },
