@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.92 - The game kill log marks melee, lone charges, and team kills. Class search works in the player list, and the P menu shows your keys.",
+            "changelog": "v1.0.93 - Marked players and flags show on the game minimap. Flags stay off until you turn them on.",
             "dependencies": [],
             "isEnabled": true
         },
