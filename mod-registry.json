@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.86 - Flags can be shown on the map and on the ground. They stay off until you turn them on.",
+            "changelog": "v1.0.87 - The map sits on top of the other panels. The mouse unlocks while it is open, and the P menu stays on screen beside it.",
             "dependencies": [],
             "isEnabled": true
         },
