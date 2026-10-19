@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.84 - Click a dot to spectate, bring, or send them to their regiment. Type a class, faction, or regiment to filter the map. [ and ] step through marked players.",
+            "changelog": "v1.0.85 - Riders are scored against the other riders. Kills lists melee, a lone charge, and teamkills.",
             "dependencies": [],
             "isEnabled": true
         },
