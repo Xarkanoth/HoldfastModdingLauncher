@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.95 - In freecam, your circle follows the camera instead of staying on your body.",
+            "changelog": "v1.0.96 - The map is the photo, a bit see-through, with the side counts on it. Icons are smaller, and the freecam arrow points the way you are moving.",
             "dependencies": [],
             "isEnabled": true
         },

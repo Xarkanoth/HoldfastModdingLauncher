@@ -1,7 +1,7 @@
 {
     "Mods":  {
                  "AdvancedAdminUI":  {
-                                         "Version":  "1.0.95",
+                                         "Version":  "1.0.96",
                                          "DisplayName":  "Advanced Admin UI",
                                          "Description":  "Overhead map for Holdfast admins. Press your map key (F3 by default) after RC login. The map sits at the top left. Its buttons are on the P menu.",
                                          "Requirements":  "Requires RC login to use.",
