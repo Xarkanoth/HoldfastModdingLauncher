@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.88 - The map stays full height when the P menu is open, with a gap between them.",
+            "changelog": "v1.0.89 - Players on the map use class shapes, facing, and a side count instead of squares.",
             "dependencies": [],
             "isEnabled": true
         },
