@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.97 - Follow holds one zoom instead of bouncing, and a line on your dot shows where you are looking.",
+            "changelog": "v1.0.98 - Kill log colors and the player list search attach again.",
             "dependencies": [],
             "isEnabled": true
         },
