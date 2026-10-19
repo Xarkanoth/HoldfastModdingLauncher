@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.98 - Kill log colors and the player list search attach again.",
+            "changelog": "v1.0.99 - The map is smaller in the top left. Only your look line shows, and the hover card is see-through with smaller text.",
             "dependencies": [],
             "isEnabled": true
         },
