@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.89 - Players on the map use class shapes, facing, and a side count instead of squares.",
+            "changelog": "v1.0.90 - Press F6 to cycle marks on, freeflight only, or off. Labels show the state and the isolation and danger numbers.",
             "dependencies": [],
             "isEnabled": true
         },
