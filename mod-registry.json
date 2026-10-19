@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.85 - Riders are scored against the other riders. Kills lists melee, a lone charge, and teamkills.",
+            "changelog": "v1.0.86 - Flags can be shown on the map and on the ground. They stay off until you turn them on.",
             "dependencies": [],
             "isEnabled": true
         },
