@@ -1,9 +1,9 @@
 {
     "Mods":  {
                  "AdvancedAdminUI":  {
-                                         "Version":  "1.0.71",
+                                         "Version":  "1.0.90",
                                          "DisplayName":  "Advanced Admin UI",
-                                         "Description":  "A comprehensive client-side admin tool suite for Holdfast: Nations at War. Features include Cavalry Visualization, Rambo Indicator, AFK Indicator, Minimap, and Admin UI.",
+                                         "Description":  "Overhead map for Holdfast admins. Press your map key (F3 by default) after RC login. It slides in on the left and sits beside the P menu.",
                                          "Requirements":  "Requires RC login to use.",
                                          "DllName":  "AdvancedAdminUI.dll",
                                          "ProjectFolder":  "AdvancedAdminUI"
@@ -42,6 +42,6 @@
                                      }
              },
     "Launcher":  {
-                     "Version":  "2.0.4"
+                     "Version":  "2.0.7"
                  }
 }

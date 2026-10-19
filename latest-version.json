@@ -1,6 +1,6 @@
 {
-  "version": "2.0.6",
-  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v2.0.6/HoldfastModdingLauncher-v2.0.6.zip",
-  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v2.0.6",
-  "releaseNotes": "Advanced Admin UI settings now include the keys that step through marked players. Leave them blank for [ and ]."
+  "version": "2.0.7",
+  "downloadUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/download/v2.0.7/HoldfastModdingLauncher-v2.0.7.zip",
+  "releaseUrl": "https://github.com/Xarkanoth/HoldfastModdingLauncher/releases/tag/v2.0.7",
+  "releaseNotes": "The Keys window now has the marks key and the map icon size. Leave the marks key blank for F6, and leave the size blank for 22."
 }
