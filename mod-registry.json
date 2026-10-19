@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.82 - The map slides in from the left inside the game. Your key is F3 unless you set another one, and the P menu shifts over to make room.",
+            "changelog": "v1.0.84 - Click a dot to spectate, bring, or send them to their regiment. Type a class, faction, or regiment to filter the map. [ and ] step through marked players.",
             "dependencies": [],
             "isEnabled": true
         },
