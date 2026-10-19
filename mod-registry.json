@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.94 - The map sits at the top left and keeps the whole battlefield in frame. Follow, whole map, and the player buttons are on the P menu. Marks clear when that player dies.",
+            "changelog": "v1.0.95 - In freecam, your circle follows the camera instead of staying on your body.",
             "dependencies": [],
             "isEnabled": true
         },
