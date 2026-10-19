@@ -21,7 +21,7 @@
             "dllName": "AdvancedAdminUI.dll",
             "iconUrl": "",
             "screenshots": [],
-            "changelog": "v1.0.91 - Marked players can glow through walls. Turn it on from Marks. It stays off until you do.",
+            "changelog": "v1.0.92 - The game kill log marks melee, lone charges, and team kills. Class search works in the player list, and the P menu shows your keys.",
             "dependencies": [],
             "isEnabled": true
         },
